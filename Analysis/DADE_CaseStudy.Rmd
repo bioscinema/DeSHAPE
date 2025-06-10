@@ -1,0 +1,1715 @@
+---
+title: "DADE_CaseStudy"
+author: "Yiqian"
+date: "2025-06-05"
+output: html_document
+---
+
+
+# Loading functions
+```{r}
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(ggpubr)
+library(car)
+library(quantreg)
+library(dplyr)
+library(hillR)
+
+source("Functions.R")
+```
+
+# Cardiovascular_wgs
+
+```{r}
+load("cardiovascular_wgs.RData")
+meta <- as(sample_data(ps),"data.frame")
+meta$SampleID <- rownames(meta)
+
+meta <- meta %>%
+  filter(grepl("^MMC", Status) | grepl("^HC", Status) | grepl("^IHD", Status)) %>%
+  mutate(Status = ifelse(grepl("^MMC", Status), "MMC",
+                         ifelse(grepl("^HC", Status), "HC", 
+                                ifelse(grepl("^IHD", Status), "IHD", NA))))
+
+meta <- meta %>%
+  mutate(HbA1c = ifelse(HbA1c.... == "NA", NA, HbA1c....)) %>% 
+  filter(!is.na(HbA1c)) %>%
+  mutate(HbA1c = as.numeric(HbA1c....))
+
+meta <- meta %>%
+  filter(Gender %in% c("Female", "Male"))
+
+ps_filt <- prune_samples(meta$SampleID, ps)
+sample_data(ps_filt) <- sample_data(meta)
+ps_filt <- prune_taxa(taxa_sums(ps_filt) > 0, ps_filt)
+
+otu_mat <- as(otu_table(ps_filt), "matrix")
+if (taxa_are_rows(ps_filt)) {
+  otu_mat <- t(otu_mat)
+}
+
+depth <- rowSums(otu_mat)
+```
+
+## Shannon
+
+```{r}
+shannon_vec <- diversity(otu_mat, index = "shannon")
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(ps_filt),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+
+p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "kruskal.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_shannon_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+
+```
+
+```{r}
+### Permutation-based test
+
+### DADE 1: Median Diff Test
+result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$Status <- factor(plot_df$Status)
+brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test (empty)
+```
+
+
+```{r}
+#############################################################################
+### Regression-based test
+
+### DADE 1: Median Diff Test
+fit_full <- rq(Shannon ~ Status, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ 1, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth
+fit_full <- rq(Shannon ~ Status + Depth, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth and other confounders
+fit_full <- rq(Shannon ~ Status + Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+### DADE 2: Dispersion Diff Test
+# H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
+# H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
+# contrast vector C = (0,-1,1,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Test
+# H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
+# H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
+# contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,-2,2,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+```
+
+## Faith's PD
+
+```{r}
+tree = phy_tree(ps_filt)
+shannon_vec <- setNames(picante::pd(otu_mat, tree, include.root = TRUE)$PD, rownames(otu_mat))
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(ps_filt),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "kruskal.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's PD Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_FaithPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+### Permutation-based test
+
+### DADE 1: Median Diff Test
+result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$Status <- factor(plot_df$Status)
+brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test (empty)
+```
+
+```{r}
+#############################################################################
+### Regression-based test
+
+### DADE 1: Median Diff Test
+fit_full <- rq(Shannon ~ Status, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ 1, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth
+fit_full <- rq(Shannon ~ Status + Depth, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth and other confounders
+fit_full <- rq(Shannon ~ Status + Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+### DADE 2: Dispersion Diff Test
+# H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
+# H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
+# contrast vector C = (0,-1,1,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Test
+# H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
+# H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
+# contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,-2,2,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+```
+
+## Chao1
+
+```{r}
+shannon_vec <- setNames(apply(otu_mat, 1, function(x) vegan::estimateR(x)["S.chao1"]), rownames(otu_mat))
+
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(ps_filt),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "kruskal.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Chao1 Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_Chao1_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+### Permutation-based test
+
+### DADE 1: Median Diff Test
+result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$Status <- factor(plot_df$Status)
+brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test (empty)
+```
+
+```{r}
+#############################################################################
+### Regression-based test
+
+### DADE 1: Median Diff Test
+fit_full <- rq(Shannon ~ Status, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ 1, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth
+fit_full <- rq(Shannon ~ Status + Depth, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth and other confounders
+fit_full <- rq(Shannon ~ Status + Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+### DADE 2: Dispersion Diff Test
+# H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
+# H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
+# contrast vector C = (0,-1,1,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Test
+# H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
+# H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
+# contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,-2,2,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+```
+
+## q-PD (q=1)
+
+```{r}
+tree = phy_tree(ps_filt)
+shannon_vec <-  hill_phylo(comm = otu_mat, tree = tree, q = 1, rel_then_pool = FALSE)
+
+# Assign sample names
+names(shannon_vec) <- rownames(otu_mat)
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(ps_filt),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "kruskal.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q=1) Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_qPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+
+```{r}
+### Permutation-based test
+
+### DADE 1: Median Diff Test
+result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$Status <- factor(plot_df$Status)
+brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test (empty)
+```
+
+```{r}
+#############################################################################
+### Regression-based test
+
+### DADE 1: Median Diff Test
+fit_full <- rq(Shannon ~ Status, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ 1, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth
+fit_full <- rq(Shannon ~ Status + Depth, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+# adjust sequencing depth and other confounders
+fit_full <- rq(Shannon ~ Status + Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+fit_null <- rq(Shannon ~ Depth + Gender + HbA1c, data = plot_df, tau = 0.5, method = "fn")
+
+anova(fit_null, fit_full, joint = TRUE)
+
+### DADE 2: Dispersion Diff Test
+# H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
+# H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
+# contrast vector C = (0,-1,1,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Test
+# H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
+# H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
+# contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
+wald_contrast_test(Shannon ~ Status,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,-2,2,0,1,-1),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ Status + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+```
+
+# Tumour-microbiome
+
+```{r}
+load("tumor_rooted.RData")
+phy_16S <- physeq.tree
+sample_data(physeq.tree)$group_prefix <- substr(sample_data(physeq.tree)$group, 1, 3)
+
+phy_16S <- subset_samples(physeq.tree, group_prefix != "C")
+
+phy_16S <- prune_taxa(taxa_sums(phy_16S) > 0, phy_16S)
+
+sample_data(phy_16S)$group_prefix <- factor(sample_data(phy_16S)$group_prefix)
+sample_data(phy_16S)$Cohort <- factor(sample_data(phy_16S)$Cohort)
+otu_mat <- as(otu_table(phy_16S ), "matrix")
+if (taxa_are_rows(phy_16S )) {
+  otu_mat <- t(otu_mat)
+}
+depth <- rowSums(otu_mat)
+```
+
+
+## Shannon
+
+```{r}
+shannon_vec <- diversity(otu_mat, index = "shannon")
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("tumer_shannon_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
+y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+## Faith's PD
+
+```{r}
+tree = phy_tree(phy_16S)
+shannon_vec <- setNames(picante::pd(otu_mat, tree, include.root = TRUE)$PD, rownames(otu_mat))
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("tumer_FaithsPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
+y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+## Chao1
+
+```{r}
+shannon_vec <- setNames(apply(otu_mat, 1, function(x) vegan::estimateR(x)["S.chao1"]), rownames(otu_mat))
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Chao1 Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("tumer_chao1_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
+y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+## q-PD (q=1)
+
+```{r}
+tree = phy_tree(phy_16S)
+shannon_vec <-  hill_phylo(comm = otu_mat, tree = tree, q = 1, rel_then_pool = FALSE)
+
+# Assign sample names
+names(shannon_vec) <- rownames(otu_mat)
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q =1) Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("tumer_qPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
+y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+
+# Hadza
+
+```{r}
+load("hadza.RData")
+phy_16S <- physeq
+sample_data(phy_16S)$group_prefix <- substr(sample_data(physeq)$season, 7, 7)
+sample_data(phy_16S)$Cohort <- substr(sample_data(physeq)$season, 6, 6)
+phy_16S <- prune_taxa(taxa_sums(phy_16S) > 0, phy_16S)
+
+sample_data(phy_16S)$group_prefix <- factor(sample_data(phy_16S)$group_prefix)
+sample_data(phy_16S)$Cohort <- factor(sample_data(phy_16S)$Cohort)
+otu_mat <- as(otu_table(phy_16S ), "matrix")
+if (taxa_are_rows(phy_16S )) {
+  otu_mat <- t(otu_mat)
+}
+depth <- rowSums(otu_mat)
+```
+
+## Shannon
+
+```{r}
+shannon_vec <- sample_data(phy_16S)$shannon
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("D" = "#E69F00", "W" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("hadza_shannon_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "D"]
+y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "less")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+## Faith's PD
+
+```{r}
+shannon_vec <- sample_data(phy_16S)$PD_whole_tree
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's PD Index") +
+  scale_fill_manual(values = c("D" = "#E69F00", "W" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("hadza_FaithPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "D"]
+y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "less")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+
+## Chao1
+
+```{r}
+shannon_vec <- sample_data(phy_16S)$chao1
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Chao1 Index") +
+  scale_fill_manual(values = c("D" = "#E69F00", "W" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("hadza_Chao1_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "D"]
+y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "less")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+
+
+## !!! q-PD (q=1)
+
+```{r}
+tree = phy_tree(phy_16S)
+shannon_vec <-  hill_phylo(comm = otu_mat, tree = tree, q = 1, rel_then_pool = FALSE)
+
+# Assign sample names
+names(shannon_vec) <- rownames(otu_mat)
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+meta_df <- as(sample_data(phy_16S),"data.frame")
+meta_df$SampleID <- rownames(meta_df)
+
+plot_df <- merge(shannon_df, meta_df, by = "SampleID")
+plot_df$Depth <- depth
+
+p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(
+    method = "wilcox.test",
+    label.y = max(plot_df$Shannon) * 1.05,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q =1) Index") +
+  scale_fill_manual(values = c("D" = "#E69F00", "W" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("hadza_qPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
+p
+```
+
+```{r}
+x <- plot_df$Shannon[plot_df$group_prefix == "D"]
+y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+
+result <- perm_median_test(x, y, B = 10000, alternative = "less")
+
+cat("Observed median difference:", result$statistic, "\n")
+cat("Permutation p-value:", result$p.value, "\n")
+
+### DADE 2: Dispersion Diff Test
+plot_df$group_prefix <- factor(plot_df$group_prefix)
+brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
+brown_forsythe_result 
+
+### DADE 3: Asymmetry Test
+asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+
+cat("Asymmetry difference:", asym_result$statistic, "\n")
+cat("Permutation p-value:", asym_result$p.value, "\n")
+```
+
+```{r}
+### DADE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ group_prefix,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ group_prefix + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+# adjust sequencing depth and other confounders
+qr_fit_d_c <- rq(Shannon ~ group_prefix + Cohort + Depth,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d_c, se = "boot") 
+
+### DADE 2: Dispersion Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.25,0.75),
+                   contrast = c(0,-1,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+### DADE 3: Asymmetry Diff via Quantile Reg
+wald_contrast_test(Shannon ~ group_prefix,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,-2,0,1),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+wald_contrast_test(Shannon ~ group_prefix + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,-2,0,0,1,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+# adjust sequencing depth and other confounders
+wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+                   data = plot_df,
+                   taus = c(0.1,0.5,0.9),
+                   contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
+                   alternative = "greater",
+                   kernel = "gaussian")
+
+```
+

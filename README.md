@@ -40,7 +40,7 @@ Permutation-based comparison for **two groups** (e.g., group A vs group B).
 dade_perm_pair(response ~ group,
                data        = df,
                mode        = "center",     # or "dispersion", "skewness"
-               alternative = "two.sided",  # only for "center" or "skewness"
+               alternative = "two.sided",  # only for "center"
                perm        = 999)
 ```
 

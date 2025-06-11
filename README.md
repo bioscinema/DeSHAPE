@@ -87,23 +87,80 @@ wald_contrast_test(formula, data,
 
 ---
 
-### 2.2 How to Construct the Contrast Vector
+### 2.2 How to Construct the Contrast Vector  
 
-#### Step 1: Understand the model matrix layout
+The goal of `wald_contrast_test()` is to test **linear contrasts** of quantile–regression coefficients.  
+In practice this means answering questions like:
 
-For a model `Shannon ~ group + covariate1 + covariate2`, with `K` quantiles, the full coefficient vector stacks like this:
+* *Is the group effect at the 75-th percentile larger than at the 25-th percentile?*  (**dispersion**)  
+* *Are the lower and upper tails symmetric around the median?*  (**asymmetry**)  
+* *Does the diversity difference persist after adjusting for sequencing depth or cohort?*
+
+Below is a **step-by-step recipe** that anyone can follow and replicate.
+
+---
+
+#### Step 1  Build the quantile-regression design
+
+Suppose you fit
+
 ```
-(Intercept, group, cov1, cov2)[tau1],
-(Intercept, group, cov1, cov2)[tau2],
-...
-(Intercept, group, cov1, cov2)[tauK]
+Shannon ~ group + covariate1 + covariate2
 ```
-Each quantile block contributes `(p + 1)` coefficients.
 
-#### Step 2: Build a vector that contrasts coefficients across quantiles
+and you want the 25-th and 75-th quantiles (τ = 0.25, 0.75).  
+For each τ the model has *p = 4* coefficients:
 
-- To test **dispersion**, subtract a covariate's effect at one quantile from its effect at another.
-- To test **asymmetry**, apply weights like `+1, -2, +1` across the lower, median, and upper quantiles.
+1. **Intercept**  
+2. **group** (e.g., A vs B)  
+3. **covariate1**  
+4. **covariate2**
+
+`wald_contrast_test()` **stacks** the coefficients τ-by-τ:
+
+```
+[Intercept τ0.25, group τ0.25, cov1 τ0.25, cov2 τ0.25,
+ Intercept τ0.75, group τ0.75, cov1 τ0.75, cov2 τ0.75]
+```
+
+Hence the full vector has length *p × K = 4 × 2 = 8*.  
+If you add more covariates or quantiles, the length grows automatically.
+
+---
+#### Step 2  Write down the scientific question as a contrast
+
+A **contrast vector** is mostly 0’s with small non-zero weights (−1, +1, −2, …) in
+the slots you wish to compare.
+
+| What you want to test | How to place the weights |
+|-----------------------|--------------------------|
+| **Dispersion** – is *group* at τ0.75 larger than τ0.25? | Put −1 on the *group* slot of τ0.25 and +1 on the *group* slot of τ0.75 |
+| **Asymmetry** – are tails symmetric? (`group_τ0.25 − 2×group_τ0.5 + group_τ0.75 = 0`) | Put +1, −2, +1 on successive *group* slots |
+
+**Example A : dispersion (two quantiles)**  
+```
+length = 8
+index 2 = group τ0.25 -> −1
+index 6 = group τ0.75 -> +1
+contrast = c(0, -1, 0, 0, 0, 1, 0, 0)
+```
+**Example B : asymmetry (three quantiles)**  
+
+If K = 3 (τ = 0.1, 0.5, 0.9) and p = 4 ⇒ length = 12.
+```
+index 2 = group τ0.10 -> +1
+index 6 = group τ0.50 -> -2
+index 10 = group τ0.90 -> +1
+contrast = c(0,1,0,0, 0,-2,0,0, 0,1,0,0)
+```
+---
+
+#### Step 3  Check your work
+
+1. *Length* of `contrast` must equal `p × K`.  
+2. Non-zero elements must align with the same covariate across blocks.  
+3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests a difference, +1 −2 +1 tests symmetry).
+
 
 ---
 

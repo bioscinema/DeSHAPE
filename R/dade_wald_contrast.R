@@ -32,7 +32,7 @@
 #' contrast <- matrix(c(0, 1, 0, -1, 0, 0), ncol = 1)  # Compare slopes at tau=0.25 and 0.5
 #' wald_contrast_test(y ~ x, df, taus = taus, contrast = contrast)
 #' }
-wald_contrast_test <- function(formula, data, taus,
+dade_wald_contrast <- function(formula, data, taus,
                                contrast, alternative = "two.sided",
                                kernel = "gaussian") {
   if (!all(alternative %in% c("two.sided", "greater", "less"))) {

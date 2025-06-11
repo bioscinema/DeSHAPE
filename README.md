@@ -111,53 +111,53 @@ Each quantile block contributes `(p + 1)` coefficients.
 
 #### Dispersion difference (adjusting nothing)
 
-{r}
+```r
 wald_contrast_test(Shannon ~ group_prefix,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 1),
                    alternative = "greater")
-{r\}
+```
 
 #### Dispersion difference (adjusting for sequencing depth)
 
-{r}
+```r
 wald_contrast_test(Shannon ~ group_prefix + Depth,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 0, 1, 0),
                    alternative = "greater")
-{r\}
+```
 
 #### Dispersion difference (adjusting for cohort and depth)
 
-{r}
+```r
 wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 0, 0, 1, 0, 0),
                    alternative = "greater")
-{r\}
+```
 
 #### Asymmetry difference (3 quantiles, unadjusted)
 
-{r}
+```r
 wald_contrast_test(Shannon ~ group_prefix,
                    data     = plot_df,
                    taus     = c(0.1, 0.5, 0.9),
                    contrast = c(0, 1, 0, -2, 0, 1),
                    alternative = "greater")
-{r\}
+```
 
 #### Asymmetry difference (adjusting for cohort and depth)
 
-{r}
+```r
 wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    data     = plot_df,
                    taus     = c(0.1, 0.5, 0.9),
                    contrast = c(0, 1, 0, 0, 0, -2, 0, 0, 0, 1, 0, 0),
                    alternative = "greater")
-{r\}
+```
 
 ---
 

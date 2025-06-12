@@ -145,7 +145,7 @@ perm_dispersion_test <- function(x, y, q = 0.25, B = 1000, seed = NULL,
 }
 
 # Internal helper: not exported
-perm_asymmetry_test <- function(x, y, q = 0.05, B = 1000, seed = NULL,
+perm_asymmetry_test <- function(x, y, q = 0.1, B = 1000, seed = NULL,
                                 alternative = c("two.sided", "greater", "less")) {
   if (!is.numeric(x) || !is.numeric(y)) stop("x and y must be numeric vectors")
   if (q <= 0 || q >= 0.5) stop("q must be in (0, 0.5)")

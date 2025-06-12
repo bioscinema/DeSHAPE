@@ -1,7 +1,7 @@
 #' Permutation-Based Group Comparison (Binary)
 #'
 #' Performs a permutation-based statistical test to compare two groups on center (median),
-#' dispersion (Brown-Forsythe test), or asymmetry (quantile skewness).
+#' dispersion (IQR-based Brown-Forsythe variant), or asymmetry (quantile skewness).
 #'
 #' @param formula A formula of the form `response ~ group`, where the group variable has exactly two levels.
 #' @param data A data frame containing the variables in the formula.

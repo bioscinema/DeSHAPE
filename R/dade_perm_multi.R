@@ -1,12 +1,12 @@
 #' Permutation-Based Multi-Group Comparison
 #'
 #' Performs a permutation-based test across multiple groups to assess differences in
-#' center (median) or dispersion (median-based Levene test).
+#' center (median), dispersion (IQR-based), or asymmetry (quantile-based).
 #'
 #' @param formula A formula of the form `response ~ group`, where the group variable has more than two levels.
 #' @param data A data frame containing the variables in the formula.
 #' @param mode Type of test to perform. Must be one of `"center"` (permutation median ANOVA), `"dispersion"` (IQR-based permutation test), or `"skewness"` (quantile-based asymmetry test).
-#' @param perm Number of permutations. Default is 999. Used only for `mode = "center"`.
+#' @param perm Number of permutations. Default is 999. Used for all modes.
 #' @param seed Random seed for reproducibility. Default is NULL.
 #'
 #' @return This function prints the permutation p-value to the console.

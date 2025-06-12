@@ -45,24 +45,25 @@ dade_perm_pair(response ~ group,
 ```
 
 - `"center"`: Median difference test  
-- `"dispersion"`: Median-based Levene test (Brown-Forsythe)  
-- `"skewness"`: Quantile-asymmetry permutation test
+- `"dispersion"`: Interquartile range (IQR)-based permutation test (Brown-Forsythe variant)
+- `"skewness"`: Quantile-based asymmetry score permutation test
 
 ---
 
 ### 1.2 `dade_perm_multi()`
 
-Permutation-based comparison for **three or more groups**.
+Permutation-based comparison for **three or more groups** (center, dispersion, or skewness).
 
 ```r
 dade_perm_multi(response ~ group,
                 data = df,
-                mode = "center",   # or "dispersion"
+                mode = "center",   # or "dispersion", "skewness"
                 perm = 999)
 ```
 
 - `"center"`: Tests for median shift using permutation ANOVA  
-- `"dispersion"`: Median-based Levene test
+- `"dispersion"`: Interquartile range (IQR)-based permutation test (Brown-Forsythe variant)
+- `"skewness"`: Quantile-based asymmetry permutation test across groups
 
 ---
 

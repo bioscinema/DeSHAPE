@@ -13,8 +13,8 @@
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item \code{test_stat}: The Wald test statistic.
-#'   \item \code{p_value}: The corresponding p-value based on normal approximation.
+#'   \item \code{test_stat}: The Wald chi-squared test statistic.
+#'   \item \code{p_value}: The p-value based on the normal approximation of the Wald statistic.
 #' }
 #'
 #' @importFrom quantreg rq

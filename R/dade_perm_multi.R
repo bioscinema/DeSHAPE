@@ -5,15 +5,11 @@
 #'
 #' @param formula A formula of the form `response ~ group`, where the group variable has more than two levels.
 #' @param data A data frame containing the variables in the formula.
-#' @param mode Type of test to perform. Must be one of `"center"` (permutation median ANOVA) or `"dispersion"` (Levene test).
+#' @param mode Type of test to perform. Must be one of `"center"` (permutation median ANOVA), `"dispersion"` (IQR-based permutation test), or `"skewness"` (quantile-based asymmetry test).
 #' @param perm Number of permutations. Default is 999. Used only for `mode = "center"`.
 #' @param seed Random seed for reproducibility. Default is NULL.
 #'
-#' @return The function returns:
-#' \itemize{
-#'   \item If `mode = "center"`: A list with the observed test statistic, p-value, and permutation distribution.
-#'   \item If `mode = "dispersion"`: A `data.frame` with the Levene test results from `car::leveneTest`.
-#' }
+#' @return This function prints the permutation p-value to the console.
 #'
 #' @importFrom car leveneTest
 #' @export

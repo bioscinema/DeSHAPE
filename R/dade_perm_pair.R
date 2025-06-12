@@ -11,12 +11,7 @@
 #' @param perm Number of permutations. Default is 999.
 #' @param seed Random seed for reproducibility. Default is NULL.
 #'
-#' @return The function returns test results depending on the selected mode:
-#' \itemize{
-#'   \item If `mode = "center"`: A list with statistic and p-value from the permutation median test.
-#'   \item If `mode = "dispersion"`: A `data.frame` from `car::leveneTest`.
-#'   \item If `mode = "skewness"`: A list with statistic and p-value from the asymmetry test.
-#' }
+#' @return This function prints the permutation p-value to the console.
 #'
 #' @importFrom car leveneTest
 #' @export

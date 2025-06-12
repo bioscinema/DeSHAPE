@@ -159,7 +159,7 @@ contrast = c(0,1,0,0, 0,-2,0,0, 0,1,0,0)
 
 1. *Length* of `contrast` must equal `p × K`.  
 2. Non-zero elements must align with the same covariate across blocks.  
-3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests a difference, +1 −2 +1 tests symmetry).
+3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests dispersion, +1 −2 +1 tests symmetry).
 Center (median) shift – `dade_wald_contrast()` can also test a difference in medians.
 Simply set `taus = 0.5` and choose a contrast that selects the group coefficient at that quantile (for a four-parameter model this is `contrast = c(0, 1, 0, 0))`.
 In practice, however, we recommend fitting a single-quantile regression at τ = 0.5 and inspecting the Wald statistic via `summary()`, because it is quicker and yields the same inference.

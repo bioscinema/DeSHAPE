@@ -26,7 +26,7 @@ devtools::install_github("bioscinema/DADE")
 | Function               | Description                                         | Best Used When                          |
 |------------------------|-----------------------------------------------------|-----------------------------------------|
 | `dade_perm_pair()`     | Permutation test for **2 groups**                   | Exploratory tests (center, spread, skew) |
-| `dade_perm_multi()`    | Permutation test for **>2 groups**                  | Center or dispersion differences         |
+| `dade_perm_multi()`    | Permutation test for **>2 groups**                  | Center, dispersion or skew         |
 | `dade_wald_contrast()` | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    |
 
 

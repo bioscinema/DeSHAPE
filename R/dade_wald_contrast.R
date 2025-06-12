@@ -51,7 +51,7 @@ dade_wald_contrast <- function(formula, data, taus,
   
   for (k in seq_along(taus)) {
     tau <- taus[k]
-    fit <- quantreg::rq(y ~ X - 1, tau = tau)  # use X directly
+    fit <- rq(y ~ X - 1, tau = tau)  # "-1" to use X as full design
     beta_hat <- coef(fit)
     beta_mat[, k] <- beta_hat
     
@@ -79,6 +79,7 @@ dade_wald_contrast <- function(formula, data, taus,
     }
   }
   
+  # Wald statistic
   contrast <- as.matrix(contrast)
   est <- as.numeric(t(contrast) %*% beta_vec)
   var <- as.numeric(t(contrast) %*% Sigma %*% contrast)

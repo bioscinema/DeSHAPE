@@ -16,8 +16,9 @@ library(car)
 library(quantreg)
 library(dplyr)
 library(hillR)
-
-source("Functions.R")
+library(devtools)
+devtools::install_github("bioscinema/DADE")
+library(DADE)
 ```
 
 # Cardiovascular_wgs

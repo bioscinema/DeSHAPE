@@ -124,7 +124,7 @@ perm_dispersion_anova <- function(data, outcome, group, q = 0.25, B = 1000, seed
 }
 
 # Internal helper: not exported
-perm_asymmetry_anova <- function(data, outcome, group, q = 0.05, B = 1000, seed = NULL) {
+perm_asymmetry_anova <- function(data, outcome, group, q = 0.1, B = 1000, seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
   
   x <- data[[outcome]]

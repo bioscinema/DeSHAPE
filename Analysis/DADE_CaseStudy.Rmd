@@ -17,14 +17,14 @@ library(quantreg)
 library(dplyr)
 library(hillR)
 library(devtools)
-devtools::install_github("bioscinema/DADE")
+#devtools::install_github("bioscinema/DADE")
 library(DADE)
 ```
 
 # Cardiovascular_wgs
 
 ```{r}
-load("cardiovascular_wgs.RData")
+load("../Real_Data/cardiovascular_wgs.RData")
 meta <- as(sample_data(ps),"data.frame")
 meta$SampleID <- rownames(meta)
 
@@ -94,15 +94,26 @@ p
 ### Permutation-based test
 
 ### DADE 1: Median Diff Test
-result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
-cat("Permutation p-value:", result$p.value, "\n")
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
+
 
 ### DADE 2: Dispersion Diff Test
-plot_df$Status <- factor(plot_df$Status)
-brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 
-### DADE 3: Asymmetry Test (empty)
+### DADE 3: Asymmetry Test
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 ```
 
 
@@ -132,7 +143,7 @@ anova(fit_null, fit_full, joint = TRUE)
 # H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
 # H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
 # contrast vector C = (0,-1,1,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,1,-1),
@@ -140,7 +151,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,1,-1,0),
@@ -148,7 +159,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
@@ -159,7 +170,7 @@ wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
 # H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
 # H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
 # contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,-2,2,0,1,-1),
@@ -167,7 +178,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
@@ -175,7 +186,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
@@ -224,15 +235,26 @@ p
 ### Permutation-based test
 
 ### DADE 1: Median Diff Test
-result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
-cat("Permutation p-value:", result$p.value, "\n")
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
+
 
 ### DADE 2: Dispersion Diff Test
-plot_df$Status <- factor(plot_df$Status)
-brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 
-### DADE 3: Asymmetry Test (empty)
+### DADE 3: Asymmetry Test
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -261,7 +283,7 @@ anova(fit_null, fit_full, joint = TRUE)
 # H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
 # H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
 # contrast vector C = (0,-1,1,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,1,-1),
@@ -269,7 +291,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,1,-1,0),
@@ -277,7 +299,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
@@ -288,7 +310,7 @@ wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
 # H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
 # H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
 # contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,-2,2,0,1,-1),
@@ -296,7 +318,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
@@ -304,7 +326,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
@@ -352,15 +374,26 @@ p
 ### Permutation-based test
 
 ### DADE 1: Median Diff Test
-result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
-cat("Permutation p-value:", result$p.value, "\n")
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
+
 
 ### DADE 2: Dispersion Diff Test
-plot_df$Status <- factor(plot_df$Status)
-brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 
-### DADE 3: Asymmetry Test (empty)
+### DADE 3: Asymmetry Test
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -389,7 +422,7 @@ anova(fit_null, fit_full, joint = TRUE)
 # H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
 # H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
 # contrast vector C = (0,-1,1,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,1,-1),
@@ -397,7 +430,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,1,-1,0),
@@ -405,7 +438,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
@@ -416,7 +449,7 @@ wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
 # H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
 # H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
 # contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,-2,2,0,1,-1),
@@ -424,7 +457,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
@@ -432,7 +465,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
@@ -484,15 +517,26 @@ p
 ### Permutation-based test
 
 ### DADE 1: Median Diff Test
-result <- perm_median_anova(plot_df, "Shannon", "Status", B = 10000, seed = 2025)
-cat("Permutation p-value:", result$p.value, "\n")
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
+
 
 ### DADE 2: Dispersion Diff Test
-plot_df$Status <- factor(plot_df$Status)
-brown_forsythe_result <- leveneTest(Shannon ~ Status, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 
-### DADE 3: Asymmetry Test (empty)
+### DADE 3: Asymmetry Test
+dade_perm_multi(Shannon ~ Status,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -521,7 +565,7 @@ anova(fit_null, fit_full, joint = TRUE)
 # H0: beta(2,0.75) - beta(2,0.25) = beta(3,0.75) - beta(3,0.25)
 # H0: 0 - beta(2,0.25) + beta(3,0.25) + 0 + beta(2,0.75) - beta(3,0.75) = 0
 # contrast vector C = (0,-1,1,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,1,-1),
@@ -529,7 +573,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,1,-1,0),
@@ -537,7 +581,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,1,0,0,0,0,1,-1,0,0,0),
@@ -548,7 +592,7 @@ wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
 # H0: beta(2,0.1) - 2*beta(2,0.5) + beta(2,0.9) = beta(3,0.1) - 2*beta(3,0.5) + beta(3,0.9)
 # H0: 0 + beta(2,0.1) - beta(3,0.1) + 0 - 2*beta(2,0.5) + 2*beta(3,0.5) + 0 + beta(2,0.9) - beta(3,0.9) = 0
 # contrast vector C = (0,1,-1,0,-2,2,0,1,-1)
-wald_contrast_test(Shannon ~ Status,
+dade_wald_contrast(Shannon ~ Status,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,-2,2,0,1,-1),
@@ -556,7 +600,7 @@ wald_contrast_test(Shannon ~ Status,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ Status + Depth,
+dade_wald_contrast(Shannon ~ Status + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,-2,2,0,0,1,-1,0),
@@ -564,7 +608,7 @@ wald_contrast_test(Shannon ~ Status + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
+dade_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,-1,0,0,0,0,-2,2,0,0,0,0,1,-1,0,0,0),
@@ -576,7 +620,7 @@ wald_contrast_test(Shannon ~ Status + Depth + Gender + HbA1c,
 # Tumour-microbiome
 
 ```{r}
-load("tumor_rooted.RData")
+load("../Real_Data/tumor_rooted.RData")
 phy_16S <- physeq.tree
 sample_data(physeq.tree)$group_prefix <- substr(sample_data(physeq.tree)$group, 1, 3)
 
@@ -632,24 +676,33 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
-y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
 ```
 
 ```{r}
@@ -681,7 +734,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -689,7 +742,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -697,7 +750,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -705,7 +758,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -713,7 +766,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -721,7 +774,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -769,24 +822,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
-y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -818,7 +879,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -826,7 +887,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -834,7 +895,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -842,7 +903,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -850,7 +911,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -858,7 +919,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -905,24 +966,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
-y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -954,7 +1023,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -962,7 +1031,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -970,7 +1039,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -978,7 +1047,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -986,7 +1055,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -994,7 +1063,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -1045,24 +1114,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "LTS"]
-y <- plot_df$Shannon[plot_df$group_prefix == "STS"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "greater")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "greater",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 
@@ -1095,7 +1172,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -1103,7 +1180,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -1111,7 +1188,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -1119,7 +1196,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -1127,7 +1204,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -1135,7 +1212,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -1148,7 +1225,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
 # Hadza
 
 ```{r}
-load("hadza.RData")
+load("../Real_Data/hadza.RData")
 phy_16S <- physeq
 sample_data(phy_16S)$group_prefix <- substr(sample_data(physeq)$season, 7, 7)
 sample_data(phy_16S)$Cohort <- substr(sample_data(physeq)$season, 6, 6)
@@ -1201,24 +1278,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "D"]
-y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "less")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -1250,7 +1335,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -1258,7 +1343,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -1266,7 +1351,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -1274,7 +1359,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -1282,7 +1367,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -1290,7 +1375,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -1337,24 +1422,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "D"]
-y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "less")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -1386,7 +1479,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -1394,7 +1487,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -1402,7 +1495,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -1410,7 +1503,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -1418,7 +1511,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -1426,7 +1519,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -1475,24 +1568,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "D"]
-y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "less")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -1524,7 +1625,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -1532,7 +1633,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -1540,7 +1641,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -1548,7 +1649,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -1556,7 +1657,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -1564,7 +1665,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),
@@ -1574,7 +1675,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
 ```
 
 
-## !!! q-PD (q=1)
+## q-PD (q=1)
 
 ```{r}
 tree = phy_tree(phy_16S)
@@ -1616,24 +1717,32 @@ p
 ```
 
 ```{r}
-x <- plot_df$Shannon[plot_df$group_prefix == "D"]
-y <- plot_df$Shannon[plot_df$group_prefix == "W"]
+### Permutation-based test
 
-result <- perm_median_test(x, y, B = 10000, alternative = "less")
+### DADE 1: Median Diff Test
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
-cat("Observed median difference:", result$statistic, "\n")
-cat("Permutation p-value:", result$p.value, "\n")
 
 ### DADE 2: Dispersion Diff Test
-plot_df$group_prefix <- factor(plot_df$group_prefix)
-brown_forsythe_result <- leveneTest(Shannon ~ group_prefix, data = plot_df, center = median)
-brown_forsythe_result 
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 
 ### DADE 3: Asymmetry Test
-asym_result <- perm_asymmetry_test(x, y, q = 0.05, B = 5000)
-
-cat("Asymmetry difference:", asym_result$statistic, "\n")
-cat("Permutation p-value:", asym_result$p.value, "\n")
+dade_perm_pair(Shannon ~ group_prefix,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "less",
+               perm        = 10000,
+               seed = 2025)
 ```
 
 ```{r}
@@ -1665,7 +1774,7 @@ set.seed(2025)
 summary(qr_fit_d_c, se = "boot") 
 
 ### DADE 2: Dispersion Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,1),
@@ -1673,7 +1782,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,1,0),
@@ -1681,7 +1790,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.25,0.75),
                    contrast = c(0,-1,0,0,0,1,0,0),
@@ -1689,7 +1798,7 @@ wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
                    kernel = "gaussian")
 
 ### DADE 3: Asymmetry Diff via Quantile Reg
-wald_contrast_test(Shannon ~ group_prefix,
+dade_wald_contrast(Shannon ~ group_prefix,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,-2,0,1),
@@ -1697,7 +1806,7 @@ wald_contrast_test(Shannon ~ group_prefix,
                    kernel = "gaussian")
 
 # adjust sequencing depth
-wald_contrast_test(Shannon ~ group_prefix + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,-2,0,0,1,0),
@@ -1705,7 +1814,7 @@ wald_contrast_test(Shannon ~ group_prefix + Depth,
                    kernel = "gaussian")
 
 # adjust sequencing depth and other confounders
-wald_contrast_test(Shannon ~ group_prefix + Cohort + Depth,
+dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data = plot_df,
                    taus = c(0.1,0.5,0.9),
                    contrast = c(0,1,0,0,0,-2,0,0,0,1,0,0),

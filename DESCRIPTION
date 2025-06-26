@@ -1,11 +1,11 @@
-Package: DADE
+Package: DeSHAPE
 Type: Package
-Title: Distributional Analysis of Diversity Effects
+Title: Decomposing ecological Structure through Heterogeneity, Asymmetry and Pattern Evaluation of alpha-Diversity
 Version: 0.0.1
 Authors@R: c(
   person("Zihan", "Zhu", email = "zxz1586@case.edu", role = c("aut", "cre")),
   person("Yiqian", "Zhang", email = "zhang.16383@osu.edu", role = "aut"))
-Description: Provides a diagnostic framework for detecting distributional shifts in alpha diversity across biological groups. DADE supports testing for differences in location (center), spread (dispersion), and asymmetry (skewness) using both permutation-based and quantile-regression-based approaches. The framework also accommodates covariate adjustment to control for potential confounders. Designed for use in microbiome and ecological data analysis, where understanding full distributional changes is essential.
+Description: Provides a diagnostic framework for detecting distributional shifts in alpha diversity across biological groups. DeSHAPE supports testing for differences in location (center), spread (dispersion), and asymmetry (skewness) using both permutation-based and quantile-regression-based approaches. The framework also accommodates covariate adjustment to control for potential confounders. Designed for use in microbiome and ecological data analysis, where understanding full distributional changes is essential.
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
@@ -14,4 +14,4 @@ Imports:
     car,
     stats
 RoxygenNote: 7.3.2
-URL: https://github.com/bioscinema/DADE
+URL: https://github.com/bioscinema/DeSHAPE

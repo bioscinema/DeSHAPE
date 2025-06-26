@@ -30,9 +30,9 @@
 #' df <- data.frame(y = y, x = x)
 #' taus <- c(0.25, 0.5, 0.75)
 #' contrast <- matrix(c(0, 1, 0, -1, 0, 0), ncol = 1)  # Compare slopes at tau=0.25 and 0.5
-#' dade_wald_contrast(y ~ x, data = df, taus = taus, contrast = contrast)
+#' deshape_wald_contrast(y ~ x, data = df, taus = taus, contrast = contrast)
 #' }
-dade_wald_contrast <- function(formula, data, taus,
+deshape_wald_contrast <- function(formula, data, taus,
                                contrast, alternative = "two.sided",
                                kernel = "gaussian") {
   if (!all(alternative %in% c("two.sided", "greater", "less"))) {

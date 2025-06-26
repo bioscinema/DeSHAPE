@@ -1,15 +1,15 @@
-# DADE  
-**Distributional Analysis of Diversity Effects**
+# DeSHAPE  
+**Decomposing ecological Structure through Heterogeneity, Asymmetry and Pattern Evaluation of alpha-Diversity**
 
 ## Overview
 
-**DADE** (*Distributional Analysis of Diversity Effects*) is an R package that provides a diagnostic framework for testing **distributional shifts** in alpha diversity across biological groups. It focuses on detecting shifts in:
+**DeSHAPE** (*Decomposing ecological Structure through Heterogeneity, Asymmetry and Pattern Evaluation of alpha-Diversity*) is an R package that provides a diagnostic framework for testing **distributional shifts** in alpha diversity across biological groups. It focuses on detecting shifts in:
 
 - **Center** (e.g., median)
 - **Dispersion** (spread)
 - **Asymmetry** (skewness)
 
-DADE supports both **permutation-based** and **quantile-regression-based** testing strategies, with or without covariate adjustment.
+DeSHAPE supports both **permutation-based** and **quantile-regression-based** testing strategies, with or without covariate adjustment.
 
 ---
 
@@ -18,26 +18,26 @@ DADE supports both **permutation-based** and **quantile-regression-based** testi
 Install the development version directly from GitHub:
 ```r
 # install.packages("devtools")
-devtools::install_github("bioscinema/DADE")
+devtools::install_github("bioscinema/DeSHAPE")
 ```
 
 ## Functions
 
 | Function               | Description                                         | Best Used When                          |
 |------------------------|-----------------------------------------------------|-----------------------------------------|
-| `dade_perm_pair()`     | Permutation test for **2 groups**                   | Exploratory tests (center, spread, skew) |
-| `dade_perm_multi()`    | Permutation test for **>2 groups**                  | Center, dispersion or skew         |
-| `dade_wald_contrast()` | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    |
+| `deshape_perm_pair()`     | Permutation test for **2 groups**                   | Exploratory tests (center, spread, skew) |
+| `deshape_perm_multi()`    | Permutation test for **>2 groups**                  | Center, dispersion or skew         |
+| `deshape_wald_contrast()` | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    |
 
 
 ## 1. Permutation-Based Testing
 
-### 1.1 `dade_perm_pair()`
+### 1.1 `deshape_perm_pair()`
 
 Permutation-based comparison for **two groups** (e.g., group A vs group B).
 
 ```r
-dade_perm_pair(response ~ group,
+deshape_perm_pair(response ~ group,
                data        = df,
                mode        = "center",     # or "dispersion", "skewness"
                alternative = "two.sided",  # only for "center"
@@ -50,12 +50,12 @@ dade_perm_pair(response ~ group,
 
 ---
 
-### 1.2 `dade_perm_multi()`
+### 1.2 `deshape_perm_multi()`
 
 Permutation-based comparison for **three or more groups** (center, dispersion, or skewness).
 
 ```r
-dade_perm_multi(response ~ group,
+deshape_perm_multi(response ~ group,
                 data = df,
                 mode = "center",   # or "dispersion", "skewness"
                 perm = 999)
@@ -69,12 +69,12 @@ dade_perm_multi(response ~ group,
 
 ## 2. Quantile Regression Contrast Test
 
-### 2.1 `dade_wald_contrast()`
+### 2.1 `deshape_wald_contrast()`
 
 Wald-type test for linear contrasts of quantile regression coefficients across multiple quantile levels. Allows **confounder adjustment** and supports tests of `center (median)`, `dispersion`, and `tail asymmetry`.
 
 ```r
-dade_wald_contrast(formula, data,
+deshape_wald_contrast(formula, data,
                    taus,           # e.g., c(0.25, 0.75)
                    contrast,       # numeric contrast vector
                    alternative = "two.sided",
@@ -90,7 +90,7 @@ dade_wald_contrast(formula, data,
 
 ### 2.2 How to Construct the Contrast Vector  
 
-The goal of `dade_wald_contrast()` is to test **linear contrasts** of quantile–regression coefficients.  
+The goal of `deshape_wald_contrast()` is to test **linear contrasts** of quantile–regression coefficients.  
 In practice this means answering questions like:
 
 * *Is the group effect at the 75-th percentile larger than at the 25-th percentile?*  (**dispersion**)  
@@ -117,7 +117,7 @@ For each τ the model has *p = 4* coefficients:
 3. **covariate1**  
 4. **covariate2**
 
-`dade_wald_contrast()` **stacks** the coefficients τ-by-τ:
+`deshape_wald_contrast()` **stacks** the coefficients τ-by-τ:
 
 ```
 [Intercept τ0.25, group τ0.25, cov1 τ0.25, cov2 τ0.25,
@@ -161,7 +161,7 @@ contrast = c(0,1,0,0, 0,-2,0,0, 0,1,0,0)
 1. *Length* of `contrast` must equal `p × K`.  
 2. Non-zero elements must align with the same covariate across blocks.  
 3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests dispersion, +1 −2 +1 tests symmetry).
-Center (median) shift – `dade_wald_contrast()` can also test a difference in medians.
+Center (median) shift – `deshape_wald_contrast()` can also test a difference in medians.
 Simply set `taus = 0.5` and choose a contrast that selects the group coefficient at that quantile (for a four-parameter model this is `contrast = c(0, 1, 0, 0))`.
 In practice, however, we recommend fitting a single-quantile regression at τ = 0.5 and inspecting the Wald statistic via `summary()`, because it is quicker and yields the same inference.
 
@@ -172,7 +172,7 @@ In practice, however, we recommend fitting a single-quantile regression at τ = 
 #### Dispersion difference (adjusting nothing)
 
 ```r
-dade_wald_contrast(Shannon ~ group_prefix,
+deshape_wald_contrast(Shannon ~ group_prefix,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 1),
@@ -182,7 +182,7 @@ dade_wald_contrast(Shannon ~ group_prefix,
 #### Dispersion difference (adjusting for sequencing depth)
 
 ```r
-dade_wald_contrast(Shannon ~ group_prefix + Depth,
+deshape_wald_contrast(Shannon ~ group_prefix + Depth,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 0, 1, 0),
@@ -192,7 +192,7 @@ dade_wald_contrast(Shannon ~ group_prefix + Depth,
 #### Dispersion difference (adjusting for cohort and depth)
 
 ```r
-dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
+deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data     = plot_df,
                    taus     = c(0.25, 0.75),
                    contrast = c(0, -1, 0, 0, 0, 1, 0, 0),
@@ -202,7 +202,7 @@ dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
 #### Asymmetry difference (3 quantiles, unadjusted)
 
 ```r
-dade_wald_contrast(Shannon ~ group_prefix,
+deshape_wald_contrast(Shannon ~ group_prefix,
                    data     = plot_df,
                    taus     = c(0.1, 0.5, 0.9),
                    contrast = c(0, 1, 0, -2, 0, 1),
@@ -212,7 +212,7 @@ dade_wald_contrast(Shannon ~ group_prefix,
 #### Asymmetry difference (adjusting for cohort and depth)
 
 ```r
-dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
+deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    data     = plot_df,
                    taus     = c(0.1, 0.5, 0.9),
                    contrast = c(0, 1, 0, 0, 0, -2, 0, 0, 0, 1, 0, 0),
@@ -223,8 +223,8 @@ dade_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
 
 ## Workflow Summary
 
-1. Use `dade_perm_pair()` or `dade_perm_multi()` for unadjusted, distribution-based testing.
-2. Use `dade_wald_contrast()` when:
+1. Use `deshape_perm_pair()` or `deshape_perm_multi()` for unadjusted, distribution-based testing.
+2. Use `deshape_wald_contrast()` when:
    - You want to adjust for covariates (e.g., sequencing depth).
    - You want formal tests of dispersion or tail asymmetry, or—if you prefer—a median (center) test; although for center a simple quantile regression followed by `summary()` is usually simpler.
 3. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.

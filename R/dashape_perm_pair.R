@@ -19,9 +19,9 @@
 #' @examples
 #' \dontrun{
 #' data <- data.frame(Shannon = rnorm(100), Group = rep(c("A", "B"), 50))
-#' dade_perm_pair(Shannon ~ Group, data = data, mode = "center")
+#' deshape_perm_pair(Shannon ~ Group, data = data, mode = "center")
 #' }
-dade_perm_pair <- function(formula, data, 
+deshape_perm_pair <- function(formula, data, 
                            mode = c("center", "dispersion", "skewness"), 
                            alternative = c("greater", "less", "two.sided"), 
                            perm = 999, seed = NULL) {

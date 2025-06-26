@@ -17,9 +17,9 @@
 #' @examples
 #' \dontrun{
 #' data <- data.frame(Shannon = rnorm(90), Group = rep(c("A", "B", "C"), each = 30))
-#' dade_perm_multi(Shannon ~ Group, data = data, mode = "center")
+#' deshape_perm_multi(Shannon ~ Group, data = data, mode = "center")
 #' }
-dade_perm_multi <- function(formula, data, mode = c("center", "dispersion", "skewness"), perm = 999, seed) {
+deshape_perm_multi <- function(formula, data, mode = c("center", "dispersion", "skewness"), perm = 999, seed) {
   mode <- match.arg(mode)
   
   vars <- all.vars(formula)

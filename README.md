@@ -27,7 +27,7 @@ devtools::install_github("bioscinema/DeSHAPE")
 |------------------------|-----------------------------------------------------|-----------------------------------------|
 | `deshape_perm_pair()`     | Permutation test for **2 groups**                   | Exploratory tests (center, spread, skew) |
 | `deshape_perm_multi()`    | Permutation test for **>2 groups**                  | Center, dispersion or skew         |
-| `deshape_wald_contrast()` | | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    | `deshape_glm_resid_test()` | Residual-shape permutation test **after** a GLM fit | Covariate-adjusted center, dispersion, or skew when predictors must be controlled |
+| `deshape_wald_contrast()` |  Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    |  | `deshape_glm_resid_test()` | Residual-shape permutation test **after** a GLM fit | Covariate-adjusted center, dispersion, or skew when predictors must be controlled |
 
 
 

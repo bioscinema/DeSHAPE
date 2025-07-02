@@ -265,14 +265,10 @@ The choice of family and link function depends on the choice of alpha diversity 
 ## Workflow Summary
 
 1. Use `deshape_perm_pair()` or `deshape_perm_multi()` for unadjusted, distribution-based testing.
-2. Use `deshape_glm_resid_test()` when you need to **fit a GLM with
-   multiple covariates** first, then test whether the residual
-   distributions differ in center, dispersion, or skewness across
-   groups.
-3. Use `deshape_wald_contrast()` when you want formal quantile-regression
+2. Use `deshape_wald_contrast()` when you want formal quantile-regression
    contrasts (especially for dispersion or tail asymmetry) **and** need
    covariate adjustment; for a simple median shift a single τ = 0.5
-   quantile regression followed by `summary()` is usually quicker.
-4. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.
+   quantile regression followed by `summary()` is usually quicker. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.
+3. Use `deshape_glm_resid_test()` when you have limited sample size or want it as sensitivity/robustness check to Wald contrast method.
 
 ---

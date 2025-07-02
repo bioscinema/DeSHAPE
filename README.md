@@ -231,15 +231,17 @@ across user-defined groups while automatically adjusting for all other
 covariates in the model.
 
 ```r
-# adjust for Depth, Gender, HbA1c, then compare residual dispersion by Status
+# adjust for Depth, Cohort, then compare residual dispersion by group_prefix
 deshape_glm_resid_test(
-  Shannon ~ Status + Depth + Gender + HbA1c,
-  data   = df,
-  family = gaussian(),
-  group  = "Status",
-  mode   = "dispersion",
-  B      = 999
-)
+  Shannon ~ group_prefix + Cohort + Depth,
+  data = plot_df,
+  mode = "center",
+  family = Gamma(link = "log"), 
+  group = "group_prefix", 
+  alternative = "greater",
+  q = 0.25, 
+  B = 999, 
+  seed = 2025)
 ```
 
 Internally the function drops `group` from the right-hand side before

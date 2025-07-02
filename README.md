@@ -27,7 +27,8 @@ devtools::install_github("bioscinema/DeSHAPE")
 |------------------------|-----------------------------------------------------|-----------------------------------------|
 | `deshape_perm_pair()`     | Permutation test for **2 groups**                   | Exploratory tests (center, spread, skew) |
 | `deshape_perm_multi()`    | Permutation test for **>2 groups**                  | Center, dispersion or skew         |
-| `deshape_wald_contrast()` | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    |
+| `deshape_wald_contrast()` | Quantile-regression-based **contrast test**         | Covariate-adjusted center, dispersion, or skew    | `deshape_glm_resid_test()` | Residual-shape permutation test **after** a GLM fit | Covariate-adjusted center, dispersion, or skew when predictors must be controlled |
+
 
 
 ## 1. Permutation-Based Testing
@@ -219,14 +220,44 @@ deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    alternative = "greater")
 ```
 
+## 3. GLM Residual Shape Test
+
+### 3.1 `deshape_glm_resid_test()`
+
+Compares the **center**, **dispersion**, or **skewness** of GLM residuals
+across user-defined groups while automatically adjusting for all other
+covariates in the model.
+
+```r
+# adjust for Depth, Gender, HbA1c, then compare residual dispersion by Status
+deshape_glm_resid_test(
+  Shannon ~ Status + Depth + Gender + HbA1c,
+  data   = df,
+  family = gaussian(),
+  group  = "Status",
+  mode   = "dispersion",
+  B      = 999
+)
+```
+
+Internally the function drops `group` from the right-hand side before
+fitting the GLM, so residuals are free of the group effect yet still
+reflect all other covariate adjustments.
+
+
 ---
 
 ## Workflow Summary
 
 1. Use `deshape_perm_pair()` or `deshape_perm_multi()` for unadjusted, distribution-based testing.
-2. Use `deshape_wald_contrast()` when:
-   - You want to adjust for covariates (e.g., sequencing depth).
-   - You want formal tests of dispersion or tail asymmetry, or—if you prefer—a median (center) test; although for center a simple quantile regression followed by `summary()` is usually simpler.
-3. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.
+2. Use `deshape_glm_resid_test()` when you need to **fit a GLM with
+   multiple covariates** first, then test whether the residual
+   distributions differ in center, dispersion, or skewness across
+   groups.
+3. Use `deshape_wald_contrast()` when you want formal quantile-regression
+   contrasts (especially for dispersion or tail asymmetry) **and** need
+   covariate adjustment; for a simple median shift a single τ = 0.5
+   quantile regression followed by `summary()` is usually quicker.
+4. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.
 
 ---

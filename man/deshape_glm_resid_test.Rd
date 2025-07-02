@@ -2,7 +2,7 @@
 % Please edit documentation in R/deshape_glm_resid_test.R
 \name{deshape_glm_resid_test}
 \alias{deshape_glm_resid_test}
-\title{DeSHAPE GLM‐Residual Group Shape Test}
+\title{DeSHAPE GLM-Residual Group Shape Test}
 \usage{
 deshape_glm_resid_test(
   formula,
@@ -20,24 +20,24 @@ deshape_glm_resid_test(
 \item{formula}{A model \code{\link[stats]{formula}} passed to
 \code{\link[stats]{glm}}.}
 
-\item{data}{A data frame containing the variables referenced in
+\item{data}{Data frame containing variables referenced in
 \code{formula} and the grouping variable.}
 
-\item{mode}{Character; which aspect of residual shape to test.
-Must be one of \code{"center"}, \code{"dispersion"},
+\item{mode}{Character string indicating which aspect of residual
+shape to test; one of \code{"center"}, \code{"dispersion"},
 \code{"skewness"}.  See *Test statistics*.}
 
-\item{family}{A GLM family object; default is
-\code{\link[stats]{gaussian}}.}
+\item{family}{A GLM family object (default
+\code{\link[stats]{gaussian}}).}
 
 \item{group}{**Character string** giving the column name in
-\code{data} that defines groups whose residual shapes are
+\code{data} that defines the groups whose residual shapes are
 compared.}
 
-\item{alternative}{Alternative hypothesis: \code{"two.sided"}
-(default), \code{"greater"}, or \code{"less"}.}
+\item{alternative}{Alternative hypothesis:
+\code{"two.sided"} (default), \code{"greater"}, or \code{"less"}.}
 
-\item{q}{Lower tail probability used in the inter-quantile
+\item{q}{Lower-tail probability used in the inter-quantile
 contrasts; must satisfy \eqn{0 < q < 0.5}.  Default \code{0.25}.}
 
 \item{B}{Integer; number of label permutations (default
@@ -46,54 +46,55 @@ contrasts; must satisfy \eqn{0 < q < 0.5}.  Default \code{0.25}.}
 \item{seed}{Optional integer seed for reproducibility.}
 }
 \value{
-A list with elements
+A list with components
 \describe{
   \item{\code{statistic}}{Observed test statistic \eqn{T}.}
-  \item{\code{p.value}}{Permutation \eqn{p}-value.}
-  \item{\code{T_perm}}{Vector of permuted statistics (length
-        \code{B}).}
+  \item{\code{p.value}}{Permutation \eqn{p}\,-value.}
+  \item{\code{T_perm}}{Vector of permuted statistics
+        (length \code{B}).}
   \item{\code{mode}}{Requested shape aspect.}
-  \item{\code{method}}{Character describing the test.}
+  \item{\code{method}}{Description of the test.}
   \item{\code{B}}{Number of permutations performed.}
 }
 }
 \description{
-Implements the **DeSHAPE** framework on residuals from a
-generalized-linear model (GLM) to compare *shape* characteristics
-(location, dispersion, or skewness) of the residual distribution
-across user-defined groups.  The procedure
+Applies the **DeSHAPE** framework to *response* residuals from a
+generalized-linear model (GLM) in order to compare distributional
+*shape* features—location, dispersion, or skewness—across
+user-defined groups.  The procedure
 \enumerate{
-  \item fits a GLM given by \code{formula} and extracts Pearson residuals;
-  \item computes a group-specific summary statistic that targets the
-        chosen aspect of shape (\code{"center"}, \code{"dispersion"},
+  \item fits the GLM specified by \code{formula} and extracts raw
+        response residuals;
+  \item computes a group-specific summary statistic targeting the
+        selected shape aspect (\code{"center"}, \code{"dispersion"},
         or \code{"skewness"});
-  \item forms a weighted cross-group contrast statistic, \eqn{T};
-  \item obtains a permutation reference distribution of \eqn{T} by
-        randomly re-shuffling group labels \code{B} times;
-  \item returns the observed statistic and a permutation
-        \eqn{p}-value.
+  \item forms a cross-group sum-of-squares contrast statistic,
+        \eqn{T};
+  \item constructs a permutation reference distribution for
+        \eqn{T} by re-shuffling group labels \code{B} times;
+  \item returns the observed statistic together with its permutation
+        \eqn{p}\,-value.
 }
 The test generalises the original DeSHAPE methodology to any GLM
-supported by \code{\link[stats]{glm}} (e.g., Gaussian, Poisson,
-binomial) and is especially useful when covariates must be adjusted
-before shape differences are interrogated.
+handled by \code{\link[stats]{glm}} (e.g.\ Gaussian, Poisson,
+binomial) and is particularly useful when covariates must be adjusted
+prior to shape comparison.
 }
 \details{
-The statistic aggregates group-level summaries through a
-weighted mean‐of-squares so that groups with more observations
-contribute proportionally.  Under the null hypothesis of equal
-residual shape across groups, permuting group labels yields an
-exact test when residuals are exchangeable and an
+The sum-of-squares statistic aggregates deviations of each
+group-level summary from the overall summary.  Under the null
+hypothesis of equal residual shape across groups, label permutation
+yields an exact test when residuals are exchangeable and an
 asymptotically valid test otherwise.
 }
 \section{Test statistics}{
 
 \describe{
-  \item{\code{mode = "center"}}{Median of residuals in each group.}
+  \item{\code{mode = "center"}}{Group median of residuals.}
   \item{\code{mode = "dispersion"}}{Inter-quantile range
         \eqn{Q_{1-q} - Q_q}.}
-  \item{\code{mode = "skewness"}}{Third-order, quantile-based
-        contrast \eqn{Q_{1-q} - 2Q_{0.5} + Q_q}.}
+  \item{\code{mode = "skewness"}}{Quantile-based third-order contrast
+        \eqn{Q_{1-q} - 2Q_{0.5} + Q_q}.}
 }
 }
 
@@ -103,7 +104,7 @@ set.seed(123)
 n  <- 120
 g  <- gl(3, n/3, labels = c("A", "B", "C"))
 x1 <- rnorm(n)
-y  <- 0.5 + 1.2 * x1 + rnorm(n, sd = 0.8)          # Gaussian GLM
+y  <- 0.5 + 1.2 * x1 + rnorm(n, sd = 0.8)      # Gaussian GLM
 dat <- data.frame(y, x1, g)
 
 # Test equality of residual dispersion across groups

@@ -46,7 +46,8 @@ deshape_perm_pair(response ~ group,
                data        = df,
                mode        = "center",     # or "dispersion", "skewness"
                alternative = "two.sided",  
-               perm        = 999)
+               perm        = 999,
+               seed        = 2025)
 ```
 
 - `"center"`: Median difference permutation test  
@@ -63,7 +64,8 @@ Permutation-based comparison for **three or more groups** (center, dispersion, o
 deshape_perm_multi(response ~ group,
                 data = df,
                 mode = "center",   # or "dispersion", "skewness"
-                perm = 999)
+                perm = 999,
+                seed = 2025)
 ```
 
 - `"center"`: Tests for median shift using permutation test on ANOVA-style test statistic  

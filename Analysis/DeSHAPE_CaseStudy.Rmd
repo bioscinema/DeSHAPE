@@ -196,6 +196,33 @@ deshape_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
 
 ```
 
+```{r}
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+```
+
+
 ## Faith's PD
 
 ```{r}
@@ -335,6 +362,32 @@ deshape_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
 
 ```
 
+```{r}
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+```
+
 ## Chao1
 
 ```{r}
@@ -472,6 +525,32 @@ deshape_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    alternative = "two.sided",
                    kernel = "gaussian")
 
+```
+
+```{r}
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
 ```
 
 ## q-PD (q=1)
@@ -615,6 +694,32 @@ deshape_wald_contrast(Shannon ~ Status + Depth + Gender + HbA1c,
                    alternative = "two.sided",
                    kernel = "gaussian")
 
+```
+
+```{r}
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ Status + Depth + Gender + HbA1c,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "Status",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
 ```
 
 # Tumour-microbiome
@@ -783,6 +888,32 @@ deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
 
 ```
 
+```{r}
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+```
+
 ## Faith's PD
 
 ```{r}
@@ -928,6 +1059,32 @@ deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
 
 ```
 
+```{r}
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+```
+
 ## Chao1
 
 ```{r}
@@ -1070,6 +1227,32 @@ deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
                    alternative = "greater",
                    kernel = "gaussian")
 
+```
+
+```{r}
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
 ```
 
 ## q-PD (q=1)
@@ -1221,4 +1404,28 @@ deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
 
 ```
 
+```{r}
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "center",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
 
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "dispersion",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                       data = plot_df,
+                       mode = "skewness",
+                       family = Gamma(link = "log"), 
+                       group = "group_prefix",  # grouping variable name
+                       alternative = "greater",
+                       q = 0.25, B = 999, seed = 2025)$p.value
+```

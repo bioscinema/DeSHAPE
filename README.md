@@ -18,7 +18,9 @@ DeSHAPE supports both **permutation-based** and **quantile-regression-based** te
 Install the development version directly from GitHub:
 ```r
 # install.packages("devtools")
+library(devtools)
 devtools::install_github("bioscinema/DeSHAPE")
+library(DeSHAPE)
 ```
 
 ## Functions

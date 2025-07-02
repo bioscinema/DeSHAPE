@@ -232,16 +232,15 @@ covariates in the model.
 
 ```r
 # adjust for Depth, Cohort, then compare residual dispersion by group_prefix
-deshape_glm_resid_test(
-  Shannon ~ group_prefix + Cohort + Depth,
-  data = plot_df,
-  mode = "center",
-  family = Gamma(link = "log"), 
-  group = "group_prefix", 
-  alternative = "greater",
-  q = 0.25, 
-  B = 999, 
-  seed = 2025)
+deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
+                  data = plot_df,
+                  mode = "center",
+                  family = Gamma(link = "log"), 
+                  group = "group_prefix", 
+                  alternative = "greater",
+                  q = 0.25, 
+                  B = 999, 
+                  seed = 2025)
 ```
 
 Internally the function drops `group` from the right-hand side before

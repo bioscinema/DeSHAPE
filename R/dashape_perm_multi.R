@@ -56,8 +56,7 @@ perm_median_anova <- function(data, outcome, group, B = 1000, seed = NULL) {
   K <- nlevels(g)
   G_list <- split(x, g)
   group_medians <- sapply(G_list, median)
-  group_sizes <- sapply(G_list, length)
-  grand_median <- weighted.mean(group_medians, group_sizes) # use sample size weighted mean instead
+  grand_median <- median(x)
 
   T_obs <- mean((group_medians - grand_median)^2)
   
@@ -67,9 +66,7 @@ perm_median_anova <- function(data, outcome, group, B = 1000, seed = NULL) {
     g_perm <- sample(g)  # permute labels
     G_star <- split(x, g_perm)
     group_star_medians <- sapply(G_star, median)
-    group_star_sizes <- sapply(G_star, length)
-    grand_star_median <- weighted.mean(group_star_medians, group_star_sizes)
-    T_perm[b] <- mean((group_star_medians - grand_star_median)^2)
+    T_perm[b] <- mean((group_star_medians - grand_median)^2)
   }
   
   p_val <- mean(T_perm >= T_obs)
@@ -101,8 +98,7 @@ perm_dispersion_anova <- function(data, outcome, group, q = 0.25, B = 1000, seed
   K <- nlevels(g)
   G_list <- split(x, g)
   group_disp <- sapply(G_list, dispersion)
-  group_sizes <- sapply(G_list, length)
-  grand_disp <- weighted.mean(group_disp, group_sizes)
+  grand_disp <- dispersion(x)
   T_obs <- mean((group_disp - grand_disp)^2)
   
   # Permutation step
@@ -111,9 +107,7 @@ perm_dispersion_anova <- function(data, outcome, group, q = 0.25, B = 1000, seed
     g_perm <- sample(g)
     G_star <- split(x, g_perm)
     group_star_disp <- sapply(G_star, dispersion)
-    group_star_sizes <- sapply(G_star, length)
-    grand_star_disp <- weighted.mean(group_star_disp, group_star_sizes)
-    T_perm[b] <- mean((group_star_disp - grand_star_disp)^2)
+    T_perm[b] <- mean((group_star_disp - grand_disp)^2)
   }
   
   p_val <- mean(T_perm >= T_obs)
@@ -148,8 +142,7 @@ perm_asymmetry_anova <- function(data, outcome, group, q = 0.1, B = 1000, seed =
   K <- nlevels(g)
   G_list <- split(x, g)
   group_asym <- sapply(G_list, asymmetry)
-  group_sizes <- sapply(G_list, length)
-  grand_asym <- weighted.mean(group_asym, group_sizes)
+  grand_asym <- asymmetry(x)
   T_obs <- mean((group_asym - grand_asym)^2)
   
   # Permutation
@@ -158,9 +151,7 @@ perm_asymmetry_anova <- function(data, outcome, group, q = 0.1, B = 1000, seed =
     g_perm <- sample(g)
     G_star <- split(x, g_perm)
     group_star_asym <- sapply(G_star, asymmetry)
-    group_star_sizes <- sapply(G_star, length)
-    grand_star_asym <- weighted.mean(group_star_asym, group_star_sizes)
-    T_perm[b] <- mean((group_star_asym - grand_star_asym)^2)
+    T_perm[b] <- mean((group_star_asym - grand_asym)^2)
   }
   
   p_val <- mean(T_perm >= T_obs)

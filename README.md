@@ -6,7 +6,7 @@
 **DeSHAPE** (*Decomposing ecological Structure through Heterogeneity, Asymmetry and Pattern Evaluation of alpha-Diversity*) is an R package that provides a diagnostic framework for testing **distributional shifts** in alpha diversity across biological groups. It focuses on detecting shifts in:
 
 - **Center** (e.g., median)
-- **Dispersion** (spread)
+- **Dispersion** (spread and variability)
 - **Asymmetry** (skewness)
 
 DeSHAPE supports both **permutation-based** and **quantile-regression-based** testing strategies, with or without covariate adjustment.
@@ -49,8 +49,8 @@ deshape_perm_pair(response ~ group,
                perm        = 999)
 ```
 
-- `"center"`: Median difference test  
-- `"dispersion"`: Interquartile range (IQR)-based permutation test (Brown-Forsythe variant)
+- `"center"`: Median difference permutation test  
+- `"dispersion"`: Interquartile range (IQR) permutation test
 - `"skewness"`: Quantile-based asymmetry score permutation test
 
 ---
@@ -66,9 +66,9 @@ deshape_perm_multi(response ~ group,
                 perm = 999)
 ```
 
-- `"center"`: Tests for median shift using permutation ANOVA  
-- `"dispersion"`: Interquartile range (IQR)-based permutation test (Brown-Forsythe variant)
-- `"skewness"`: Quantile-based asymmetry permutation test across groups
+- `"center"`: Tests for median shift using permutation test on ANOVA-style test statistic  
+- `"dispersion"`: Tests for IQR shift using permutation test on ANOVA-style test statistic  
+- `"skewness"`: Tests for asymmetry score shift using permutation test on ANOVA-style test statistic  
 
 ---
 
@@ -86,8 +86,8 @@ deshape_wald_contrast(formula, data,
                    kernel = "gaussian")
 ```
 
-- `formula`: any valid R formula (e.g., `Shannon ~ group + Depth`)
-- `taus`: quantiles of interest (e.g., `c(0.1, 0.5, 0.9)`)
+- `formula`: any R formula valid for quantile regression (e.g., `Shannon ~ group + Depth`)
+- `taus`: quantiles of interest (a numeric vector of elementing between 0 and 1)
 - `contrast`: linear contrast vector applied to stacked coefficients
 - `alternative`: `"two.sided"`, `"greater"`, or `"less"`
 
@@ -99,8 +99,8 @@ The goal of `deshape_wald_contrast()` is to test **linear contrasts** of quantil
 In practice this means answering questions like:
 
 * *Is the group effect at the 75-th percentile larger than at the 25-th percentile?*  (**dispersion**)  
-* *Are the lower and upper tails symmetric around the median?*  (**asymmetry**)  
-* *Does the diversity difference persist after adjusting for sequencing depth or cohort?*
+* *Do the lower and upper tails response differently to group variable?*  (**asymmetry**)  
+* *Does the diversity difference persist after adjusting for sequencing depth or other covariates?*
 
 Below is a **step-by-step recipe** that anyone can follow and replicate.
 
@@ -130,7 +130,7 @@ For each τ the model has *p = 4* coefficients:
 ```
 
 Hence the full vector has length *p × K = 4 × 2 = 8*.  
-If you add more covariates or quantiles, the length grows automatically.
+If you add more covariates or quantiles, the length grows accordingly.
 
 ---
 #### Step 2  Write down the scientific question as a contrast
@@ -140,8 +140,8 @@ the slots you wish to compare.
 
 | What you want to test | How to place the weights |
 |-----------------------|--------------------------|
-| **Dispersion** – is *group* at τ0.75 larger than τ0.25? | Put −1 on the *group* slot of τ0.25 and +1 on the *group* slot of τ0.75 |
-| **Asymmetry** – are tails symmetric? (`group_τ0.25 − 2×group_τ0.5 + group_τ0.75 = 0`) | Put +1, −2, +1 on successive *group* slots |
+| **Dispersion** – is the dispersion of Shannon index in group A different from that in group B ? | Put −1 on the *group* slot of τ0.25 and +1 on the *group* slot of τ0.75 |
+| **Asymmetry** – is the symmetry of Shannon index distribution in group A different from that in group B? (null hypothesis: `group_τ0.1 − 2×group_τ0.5 + group_τ0.9 = 0`) | Put +1, −2, +1 on successive *group* slots |
 
 **Example A : dispersion (two quantiles)**  
 ```
@@ -168,7 +168,7 @@ contrast = c(0,1,0,0, 0,-2,0,0, 0,1,0,0)
 3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests dispersion, +1 −2 +1 tests symmetry).
 Center (median) shift – `deshape_wald_contrast()` can also test a difference in medians.
 Simply set `taus = 0.5` and choose a contrast that selects the group coefficient at that quantile (for a four-parameter model this is `contrast = c(0, 1, 0, 0))`.
-In practice, however, we recommend fitting a single-quantile regression at τ = 0.5 and inspecting the Wald statistic via `summary()`, because it is quicker and yields the same inference.
+In practice, however, we recommend fitting a single-quantile regression at τ = 0.5 and inspecting the Wald statistic via `summary()`, because it is quicker and yields more robust inference.
 
 ---
 

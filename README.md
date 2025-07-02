@@ -27,10 +27,10 @@ library(DeSHAPE)
 
 | Function                  | Description                                               | Best Used When                                                             |
 |---------------------------|-----------------------------------------------------------|----------------------------------------------------------------------------|
-| `deshape_perm_pair()`     | Permutation test for **2 groups**                         | Exploratory tests (center, spread, skew)                                   |
-| `deshape_perm_multi()`    | Permutation test for **>2 groups**                        | Center, dispersion, or skew                                                |
-| `deshape_wald_contrast()` | Quantile-regression-based **contrast test**               | Covariate-adjusted center, dispersion, or skew                             |
-| `deshape_glm_resid_test()`| Residual-shape permutation test **after** a GLM fit       | Covariate-adjusted center, dispersion, or skew when predictors are present |
+| `deshape_perm_pair()`     | Permutation test for **2 groups**                         | Exploratory tests (center, dispersion, asymmetry) for two groups                                 |
+| `deshape_perm_multi()`    | Permutation test for **>2 groups**                        | Exploratory tests (center, dispersion, asymmetry) for multiple groups                                                |
+| `deshape_wald_contrast()` | Quantile-regression-based **contrast test**               | Covariate-adjusted tests for center, dispersion, or asymmetry (sample size of each group > 30)                            |
+| `deshape_glm_resid_test()`| Residual-shape permutation test **after** a GLM fit       | Covariate-adjusted tests for center, dispersion, or asymmetry   |
 
 
 
@@ -45,7 +45,7 @@ Permutation-based comparison for **two groups** (e.g., group A vs group B).
 deshape_perm_pair(response ~ group,
                data        = df,
                mode        = "center",     # or "dispersion", "skewness"
-               alternative = "two.sided",  # only for "center"
+               alternative = "two.sided",  
                perm        = 999)
 ```
 

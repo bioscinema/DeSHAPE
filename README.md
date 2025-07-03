@@ -251,13 +251,13 @@ Internally the function drops `group` from the right-hand side before
 fitting the GLM, so residuals are free of the group effect yet still
 reflect all other covariate adjustments.
 
-For mode = "center", q is not needed (can be set as any value).
+**Choosing `q`**
 
-For mode = "dispersion", q = 0.25.
-
-For mode = "skewness", q reflects the width of asymmetry score calculation. For example, if use Q(0.75) - 2Q(0.5) + Q(0.25) as asymmetry score, q = 0.25; if use Q(0.9) - 2Q(0.5) + Q(0.1) as asymmetry score, q = 0.1.
-
-The choice of family and link function depends on the choice of alpha diversity index. A common choice is Gaussian(link = "log") or Gamma(link = "log), the former for symmetric distributed alpha diversity index and the latter for skewed distributed alpha diversity index. Histogram of alpha diversity index can be used to determine the family. Other tools for exploring the distribution of chose alpha diversity index are also recommended.
+- **`mode = "center"`** – `q` is ignored; you may supply any value.
+- **`mode = "dispersion"`** – set **`q = 0.25`** to compute the classical inter-quartile range `Q(0.75) - Q(0.25)`.
+- **`mode = "skewness"`** – `q` controls the tail width in the asymmetry score:  
+  - **`q = 0.25`** → `Q(0.75) - 2 × Q(0.5) + Q(0.25)`  
+  - **`q = 0.10`** → `Q(0.90) - 2 × Q(0.5) + Q(0.10)`
 
 
 ---

@@ -1,37 +1,124 @@
-#' Wald Contrast Test for Quantile Regression Coefficients
+#' Wald Contrast Test for Quantile-Regression Coefficients
 #'
-#' Performs a Wald-type test on contrasts of estimated quantile regression coefficients
-#' across multiple quantile levels. The asymptotic covariance is estimated using kernel
-#' density estimation of residuals.
+#' Performs a Wald-type test on linear contrasts of quantile-regression
+#' coefficients across multiple quantile levels. Coefficients are estimated
+#' at each \eqn{\tau \in \texttt{taus}} via \code{quantreg::rq}, stacked
+#' (by \eqn{\tau}), and tested with an asymptotic covariance built from a
+#' kernel density estimate of residuals at 0.
 #'
-#' @param formula A formula of the form `response ~ predictors`.
-#' @param data A data frame containing the variables in the model.
-#' @param taus A numeric vector of quantile levels (e.g., `c(0.25, 0.5, 0.75)`).
-#' @param contrast A contrast vector or matrix specifying linear combinations of the stacked coefficients across quantiles.
-#' @param alternative A string specifying the alternative hypothesis. One of `"two.sided"`, `"greater"`, or `"less"`. Default is `"two.sided"`.
-#' @param kernel Currently only `"gaussian"` is supported. Included for compatibility.
+#' @param formula A model formula of the form \code{response ~ predictors}.
+#'   The \strong{first non-intercept term} must be a binary group variable
+#'   (so that \code{model.matrix} produces exactly one column for it) when
+#'   \code{mode != "customize"}.
+#' @param data A data frame containing variables in \code{formula}.
+#' @param mode Contrast-construction mode. One of
+#'   \code{"customize"}, \code{"dispersion"}, or \code{"symmetry"}.
+#'   If \code{mode = "customize"}, you must supply \code{taus} and \code{contrast}.
+#'   If \code{mode = "dispersion"} or \code{"symmetry"}, \code{contrast} is
+#'   constructed automatically and any user-supplied \code{contrast} is ignored.
+#' @param taus Numeric vector of quantile levels in ascending order.
+#'   Defaults depend on \code{mode}:
+#'   \itemize{
+#'     \item \code{mode = "dispersion"}: \code{c(0.25, 0.75)} (requires exactly 2 quantiles)
+#'     \item \code{mode = "symmetry"}: \code{c(0.1, 0.5, 0.9)} (requires exactly 3 quantiles)
+#'     \item \code{mode = "customize"}: must be supplied by the user
+#'   }
+#' @param contrast A numeric vector (or single-column matrix) specifying the
+#'   linear contrast of the stacked coefficients \eqn{\beta(\tau_1),\ldots,\beta(\tau_K)}.
+#'   Its length must be \code{p * K}, where \code{p} is \code{ncol(model.matrix(...))}
+#'   and \code{K = length(taus)}. Ignored unless \code{mode = "customize"}.
+#' @param alternative Alternative hypothesis. One of \code{"two.sided"},
+#'   \code{"greater"}, or \code{"less"}. Defaults to \code{"two.sided"}.
+#'   P-values are computed from \eqn{Z = \sqrt{\chi^2_1}} accordingly.
+#' @param kernel Currently only \code{"gaussian"} is supported (placeholder for compatibility).
 #'
-#' @return A list containing:
+#' @details
+#' \strong{Coefficient stacking.}
+#' For each \eqn{\tau_k}, let the design have \code{p} columns in the order
+#' \code{(Intercept, group, covariate1, ...)}. The stacked coefficient vector is
+#' \code{(β(τ1), β(τ2), ..., β(τK))} of length \code{p * K}, i.e.
+#' \code{[Int τ1, group τ1, cov1 τ1, ..., Int τK, group τK, cov1 τK, ...]}.
+#'
+#' \strong{Auto-constructed contrasts (when \code{mode != "customize"}).}
+#' Let the \emph{group} column be the first non-intercept column in \code{model.matrix}.
+#' Other columns (intercept and covariates) receive weight 0 by default.
 #' \itemize{
-#'   \item \code{test_stat}: The Wald chi-squared test statistic.
-#'   \item \code{p_value}: The p-value based on the normal approximation of the Wald statistic.
+#'   \item \emph{Dispersion test} (\code{mode = "dispersion"}, \code{taus = (τ_L, τ_U)}):
+#'         places \code{-1} on the group at \eqn{τ_L} and \code{+1} on the group at \eqn{τ_U}.
+#'         This tests whether the group effect increases from lower to upper quantile.
+#'   \item \emph{Symmetry test} (\code{mode = "symmetry"}, \code{taus = (τ_L, τ_M, τ_U)}):
+#'         places \code{+1, -2, +1} on the group at \eqn{τ_L, τ_M, τ_U}, respectively,
+#'         testing \eqn{\beta_{\text{group}}(τ_L) - 2\beta_{\text{group}}(τ_M) + \beta_{\text{group}}(τ_U) = 0}.
 #' }
 #'
-#' @importFrom quantreg rq
-#' @export
+#' \strong{Covariance.}
+#' The covariance of the stacked coefficients is assembled using
+#' \eqn{\min(\tau_k, \tau_\ell) - \tau_k \tau_\ell} blocks and
+#' per-\eqn{\tau} density estimates at 0 from residuals
+#' (Gaussian kernel; Silverman's rule for bandwidth).
+#'
+#' @return A list with components:
+#' \itemize{
+#'   \item \code{test_stat}: Wald chi-squared statistic with 1 degree of freedom.
+#'   \item \code{p_value}: P-value computed from \eqn{Z = \sqrt{\chi^2_1}} under the
+#'         specified \code{alternative}.
+#' }
+#'
+#' @section Requirements for non-custom modes:
+#' \itemize{
+#'   \item The first non-intercept term in \code{formula} must be a binary group that
+#'         produces exactly one column in \code{model.matrix}.
+#'   \item \code{taus} must be strictly ascending; \code{length(taus)} must be 2
+#'         for \code{"dispersion"} and 3 for \code{"symmetry"} (defaults provided).
+#' }
 #'
 #' @examples
 #' \dontrun{
 #' library(quantreg)
-#' set.seed(1)
-#' n <- 100
-#' x <- rnorm(n)
-#' y <- 1 + 2 * x + rnorm(n)
-#' df <- data.frame(y = y, x = x)
-#' taus <- c(0.25, 0.5, 0.75)
-#' contrast <- matrix(c(0, 1, 0, -1, 0, 0), ncol = 1)  # Compare slopes at tau=0.25 and 0.5
-#' deshape_wald_contrast(y ~ x, data = df, taus = taus, contrast = contrast)
+#' set.seed(2025)
+#' n <- 400
+#' group <- rbinom(n, 1, 0.5)
+#' Depth <- rnorm(n, mean = 0.7 * group, sd = 1)
+#' eps0 <- rnorm(n, 0, 1)
+#' eps1 <- rnorm(n, 0, 1.8) + 0.3*(rexp(n, 1) - 1)
+#' y <- 0.5 * Depth + ifelse(group == 1, eps1, eps0)
+#' dat <- data.frame(
+#'   Shannon = y,
+#'   group_prefix = factor(group, levels = c(0,1)),
+#'   Depth = Depth
+#' )
+#'
+#' ## Dispersion (auto taus/contrast): tests increase from τ=0.25 to τ=0.75
+#' deshape_wald_contrast(
+#'   Shannon ~ group_prefix + Depth,
+#'   data = dat,
+#'   mode = "dispersion"
+#' )
+#'
+#' ## Symmetry (auto taus/contrast): tests +1·β_g(τ_L) - 2·β_g(τ_M) + 1·β_g(τ_U) = 0
+#' deshape_wald_contrast(
+#'   Shannon ~ group_prefix + Depth,
+#'   data = dat,
+#'   mode = "symmetry"
+#' )
+#'
+#' ## Customize: provide taus and contrast explicitly (matches dispersion auto)
+#' taus <- c(0.25, 0.75)
+#' # p = 3 (Intercept, group_prefix, Depth); K = 2; length = 6
+#' contrast <- c(0, -1, 0, 0, +1, 0)
+#' deshape_wald_contrast(
+#'   Shannon ~ group_prefix + Depth,
+#'   data = dat,
+#'   mode = "customize",
+#'   taus = taus,
+#'   contrast = contrast,
+#'   alternative = "greater"
+#' )
 #' }
+#'
+#' @importFrom quantreg rq
+#' @importFrom stats model.matrix model.response model.frame pnorm sd dnorm
+#' @export
 deshape_wald_contrast <- function(formula, data, 
                                   mode = c("customize","dispersion","symmetry"),
                                   taus = NULL, contrast = NULL, alternative = "two.sided",

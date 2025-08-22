@@ -32,18 +32,43 @@
 #' contrast <- matrix(c(0, 1, 0, -1, 0, 0), ncol = 1)  # Compare slopes at tau=0.25 and 0.5
 #' deshape_wald_contrast(y ~ x, data = df, taus = taus, contrast = contrast)
 #' }
-deshape_wald_contrast <- function(formula, data, taus,
-                               contrast, alternative = "two.sided",
-                               kernel = "gaussian") {
+deshape_wald_contrast <- function(formula, data, 
+                                  mode = c("customize","dispersion","symmetry"),
+                                  taus = NULL, contrast = NULL, alternative = "two.sided",
+                                  kernel = "gaussian") {
   if (!all(alternative %in% c("two.sided", "greater", "less"))) {
     stop("alternative must be 'two.sided', 'greater', or 'less'")
   }
-  
+  mode <- match.arg(mode)
+  if (is.null(taus)) {
+    if (mode == "dispersion") {
+      taus <- c(0.25, 0.75)
+    } else if (mode == "symmetry") {
+      taus <- c(0.1, 0.5, 0.9)
+    }
+  }
+  if (mode == "customize" && is.null(taus))
+    stop("When mode = 'customize', you must supply 'taus'.")
   n <- nrow(data)
   K <- length(taus)
   X <- model.matrix(formula, data)
   y <- model.response(model.frame(formula, data))
   p <- ncol(X)
+  
+  if (mode == "dispersion" && K != 2L)
+    stop("Dispersion mode requires exactly 2 quantiles (low, high).")
+  if (mode == "symmetry" && K != 3L)
+    stop("Symmetry mode requires exactly 3 quantiles (low, mid, high).")
+  if ((mode == "dispersion" || mode == "symmetry") && is.unsorted(taus))
+    stop("'taus' must be in ascending order.")
+  
+  assign_vec <- attr(X, "assign")
+  idx_group <- which(assign_vec == 1L)
+  if (mode != "customize" && length(idx_group) != 1L)
+    stop("For non-custom modes, the first non-intercept term must map to exactly one design column (binary group).")
+  
+  if (mode != "customize" && !is.null(contrast))
+    warning("'contrast' is ignored unless mode = 'customize'; auto-constructing from 'mode'.")
   
   beta_mat <- matrix(NA, nrow = p, ncol = K)
   H_list <- vector("list", K)
@@ -79,8 +104,34 @@ deshape_wald_contrast <- function(formula, data, taus,
     }
   }
   
+  # ---- Build or validate contrast ------------------------------------------
+  if (mode != "customize") {
+    # Auto-construct contrast that targets the first non-intercept (binary group) column
+    contrast <- numeric(p * K)
+    for (k in seq_len(K)) {
+      off <- (k - 1L) * p
+      if (mode == "dispersion") {
+        # K == 2: lower tau gets -1 on group; upper tau gets +1
+        if (k == 1L) contrast[off + idx_group] <- -1
+        if (k == K)  contrast[off + idx_group] <- +1
+      } else if (mode == "symmetry") {
+        # K == 3: weights +1, -2, +1 across taus on the group column
+        if (k == 1L) contrast[off + idx_group] <- +1
+        if (k == 2L) contrast[off + idx_group] <- -2
+        if (k == 3L) contrast[off + idx_group] <- +1
+      }
+    }
+  } else {
+    if (is.null(contrast))
+      stop("When mode = 'customize', you must supply 'contrast'.")
+  }
+  
+  if (length(contrast) != p * K)
+    stop("contrast must have length p * K; got ", length(contrast),
+         " while p * K = ", p * K, ".")
+  
   # Wald statistic
-  contrast <- as.matrix(contrast)
+  contrast <- matrix(contrast, ncol = 1)
   est <- as.numeric(t(contrast) %*% beta_vec)
   var <- as.numeric(t(contrast) %*% Sigma %*% contrast)
   stat <- (est^2) / var

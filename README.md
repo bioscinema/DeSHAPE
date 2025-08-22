@@ -74,157 +74,144 @@ deshape_perm_multi(response ~ group,
 
 ---
 
-## 2. Quantile Regression Contrast Test
+\textbf{2. Quantile Regression Contrast Test}
 
-### 2.1 `deshape_wald_contrast()`
+\textbf{2.1 \texttt{deshape\_wald\_contrast()}}
 
-Wald-type test for linear contrasts of quantile regression coefficients across multiple quantile levels. Allows **confounder adjustment** and supports tests of `center (median)`, `dispersion`, and `tail asymmetry`.
+\texttt{deshape\_wald\_contrast()} performs a Wald-type test on linear contrasts 
+of quantile-regression coefficients across multiple quantile levels. 
+It allows both \textbf{pre-specified contrasts} 
+(\texttt{mode = "customize"}) and \textbf{automatically constructed contrasts} 
+for common hypotheses about \textbf{dispersion} and \textbf{symmetry}.
 
-```r
-deshape_wald_contrast(formula, data,
-                   taus,           # e.g., c(0.25, 0.75)
-                   contrast,       # numeric contrast vector
-                   alternative = "two.sided",
-                   kernel = "gaussian")
-```
+The function fits separate quantile regressions at each specified quantile 
+(\texttt{taus}) using \texttt{quantreg::rq}, stacks the coefficients, 
+and builds an asymptotic covariance matrix using kernel density estimates 
+of residuals at 0. A Wald $\chi^2$ statistic (1 d.f.) is then computed, 
+and p-values are returned under the chosen alternative hypothesis.
 
-- `formula`: any R formula valid for quantile regression (e.g., `Shannon ~ group + Depth`)
-- `taus`: quantiles of interest (a numeric vector of elementing between 0 and 1)
-- `contrast`: linear contrast vector applied to stacked coefficients
-- `alternative`: `"two.sided"`, `"greater"`, or `"less"`
+\begin{verbatim}
+deshape_wald_contrast(
+  formula, data,
+  mode = c("customize", "dispersion", "symmetry"),
+  taus = NULL,
+  contrast = NULL,
+  alternative = c("two.sided", "greater", "less"),
+  kernel = "gaussian"
+)
+\end{verbatim}
 
----
+\textbf{Arguments}
+\begin{itemize}
+  \item \texttt{formula}: model formula of the form \texttt{response ~ predictors}. 
+        For non-custom modes (\texttt{"dispersion"}, \texttt{"symmetry"}), 
+        the first non-intercept term must be a binary group variable 
+        that produces exactly one column in \texttt{model.matrix}.
+  \item \texttt{data}: a data frame containing all variables in the formula.
+  \item \texttt{mode}: how to construct the contrast.
+    \begin{itemize}
+      \item \texttt{"dispersion"} – automatically compares group effects 
+            between two quantiles (default \texttt{taus = c(0.25, 0.75)}).
+      \item \texttt{"symmetry"} – automatically compares group effects 
+            across three quantiles with weights +1, –2, +1 
+            (default \texttt{taus = c(0.1, 0.5, 0.9)}).
+      \item \texttt{"customize"} – user must provide both \texttt{taus} 
+            and a full contrast vector.
+    \end{itemize}
+  \item \texttt{taus}: numeric vector of quantile levels in ascending order. 
+        Required for \texttt{mode = "customize"}. Must have length 2 
+        for \texttt{"dispersion"} and 3 for \texttt{"symmetry"}.
+  \item \texttt{contrast}: numeric vector (or single-column matrix) of 
+        length $p \times K$, where $p = \texttt{ncol(model.matrix(...))}$ 
+        and $K = \texttt{length(taus)}$. Only used when 
+        \texttt{mode = "customize"}.
+  \item \texttt{alternative}: \texttt{"two.sided"} (default), 
+        \texttt{"greater"}, or \texttt{"less"}.
+  \item \texttt{kernel}: currently only \texttt{"gaussian"} is supported.
+\end{itemize}
 
-### 2.2 How to Construct the Contrast Vector  
+\textbf{Value}
+\begin{itemize}
+  \item \texttt{test\_stat}: Wald $\chi^2$ statistic (df = 1).
+  \item \texttt{p\_value}: p-value computed using the chosen alternative hypothesis.
+\end{itemize}
 
-The goal of `deshape_wald_contrast()` is to test **linear contrasts** of quantile–regression coefficients.  
-In practice this means answering questions like:
+\textbf{2.2 Coefficient stacking and contrast construction}
 
-* *Is the group effect at the 75-th percentile larger than at the 25-th percentile?*  (**dispersion**)  
-* *Do the lower and upper tails response differently to group variable?*  (**asymmetry**)  
-* *Does the diversity difference persist after adjusting for sequencing depth or other covariates?*
+At each quantile $\tau$, the regression has $p$ coefficients. 
+These are \textbf{stacked by quantile} into a vector of length $p \times K$:
 
-Below is a **step-by-step recipe** that anyone can follow and replicate.
+\[
+[\beta_{\text{Int}}(\tau_1), \beta_{\text{group}}(\tau_1), 
+ \beta_{\text{cov1}}(\tau_1), \ldots, 
+ \beta_{\text{Int}}(\tau_K), \beta_{\text{group}}(\tau_K), 
+ \beta_{\text{cov1}}(\tau_K), \ldots ]
+\]
 
----
+A \textbf{contrast vector} selects and compares coefficients across quantiles.
+\begin{itemize}
+  \item \textbf{Dispersion test (auto):} with $\tau = (\tau_L, \tau_U)$, 
+        places –1 on the group coefficient at $\tau_L$ 
+        and +1 at $\tau_U$.
+  \item \textbf{Symmetry test (auto):} with 
+        $\tau = (\tau_L, \tau_M, \tau_U)$, 
+        places +1, –2, +1 on the group coefficients 
+        at $\tau_L$, $\tau_M$, and $\tau_U$.
+  \item \textbf{Customize:} any valid contrast can be supplied 
+        (length = $p \times K$).
+\end{itemize}
 
-#### Step 1  Build the quantile-regression design
+\textbf{2.3 Examples}
 
-Suppose you fit
+\textbf{Example A: Dispersion test (automatic)}  
+Tests whether the group effect increases from $\tau = 0.25$ to $\tau = 0.75$.
+\begin{verbatim}
+deshape_wald_contrast(
+  Shannon ~ group + Depth,
+  data = df,
+  mode = "dispersion"
+)
+\end{verbatim}
 
-```
-Shannon ~ group + covariate1 + covariate2
-```
+\textbf{Example B: Symmetry test (automatic)}  
+Tests whether the group effect is symmetric across $\tau = 0.1, 0.5, 0.9$.
+\begin{verbatim}
+deshape_wald_contrast(
+  Shannon ~ group + Depth,
+  data = df,
+  mode = "symmetry"
+)
+\end{verbatim}
 
-and you want the 25-th and 75-th quantiles (τ = 0.25, 0.75).  
-For each τ the model has *p = 4* coefficients:
+\textbf{Example C: Custom contrast}  
+Explicitly test whether $\beta_{\text{group}}(0.75) - \beta_{\text{group}}(0.25) = 0$. 
+Here, $p = 3$ (Intercept, group, Depth) and $K = 2$ 
+($\texttt{taus} = 0.25, 0.75$), so $\texttt{length(contrast)} = 6$.
+\begin{verbatim}
+taus <- c(0.25, 0.75)
+contrast <- c(0, -1, 0, 0, +1, 0)
 
-1. **Intercept**  
-2. **group** (e.g., A vs B)  
-3. **covariate1**  
-4. **covariate2**
+deshape_wald_contrast(
+  Shannon ~ group + Depth,
+  data = df,
+  mode = "customize",
+  taus = taus,
+  contrast = contrast,
+  alternative = "greater"
+)
+\end{verbatim}
 
-`deshape_wald_contrast()` **stacks** the coefficients τ-by-τ:
+\textbf{2.4 Practical notes}
+\begin{itemize}
+  \item For median differences only, a single quantile regression 
+        at $\tau = 0.5$ followed by \texttt{summary()} 
+        may be simpler and more efficient.
+  \item If the group variable is not binary or expands to multiple columns 
+        in \texttt{model.matrix}, you must use 
+        \texttt{mode = "customize"}.
+  \item Ensure \texttt{taus} are strictly ascending.
+\end{itemize}
 
-```
-[Intercept τ0.25, group τ0.25, cov1 τ0.25, cov2 τ0.25,
- Intercept τ0.75, group τ0.75, cov1 τ0.75, cov2 τ0.75]
-```
-
-Hence the full vector has length *p × K = 4 × 2 = 8*.  
-If you add more covariates or quantiles, the length grows accordingly.
-
----
-#### Step 2  Write down the scientific question as a contrast
-
-A **contrast vector** is mostly 0’s with small non-zero weights (−1, +1, −2, …) in
-the slots you wish to compare.
-
-| What you want to test | How to place the weights |
-|-----------------------|--------------------------|
-| **Dispersion** – is the dispersion of Shannon index in group A different from that in group B ? | Put −1 on the *group* slot of τ0.25 and +1 on the *group* slot of τ0.75 |
-| **Asymmetry** – is the symmetry of Shannon index distribution in group A different from that in group B? (null hypothesis: `group_τ0.1 − 2×group_τ0.5 + group_τ0.9 = 0`) | Put +1, −2, +1 on successive *group* slots |
-
-**Example A : dispersion (two quantiles)**  
-```
-length = 8
-index 2 = group τ0.25 -> −1
-index 6 = group τ0.75 -> +1
-contrast = c(0, -1, 0, 0, 0, 1, 0, 0)
-```
-**Example B : asymmetry (three quantiles)**  
-
-If K = 3 (τ = 0.1, 0.5, 0.9) and p = 4 ⇒ length = 12.
-```
-index 2 = group τ0.10 -> +1
-index 6 = group τ0.50 -> -2
-index 10 = group τ0.90 -> +1
-contrast = c(0,1,0,0, 0,-2,0,0, 0,1,0,0)
-```
----
-
-#### Step 3  Check your work
-
-1. *Length* of `contrast` must equal `p × K`.  
-2. Non-zero elements must align with the same covariate across blocks.  
-3. Sum of weights reflects the hypothesis (e.g., +1 −1 tests dispersion, +1 −2 +1 tests symmetry).
-Center (median) shift – `deshape_wald_contrast()` can also test a difference in medians.
-Simply set `taus = 0.5` and choose a contrast that selects the group coefficient at that quantile (for a four-parameter model this is `contrast = c(0, 1, 0, 0))`.
-In practice, however, we recommend fitting a single-quantile regression at τ = 0.5 and inspecting the Wald statistic via `summary()`, because it is quicker and yields more robust inference.
-
----
-
-### 2.3 Examples (Illustrative Only – Do Not Copy)
-
-#### Dispersion difference (adjusting nothing)
-
-```r
-deshape_wald_contrast(Shannon ~ group_prefix,
-                   data     = plot_df,
-                   taus     = c(0.25, 0.75),
-                   contrast = c(0, -1, 0, 1),
-                   alternative = "greater")
-```
-
-#### Dispersion difference (adjusting for sequencing depth)
-
-```r
-deshape_wald_contrast(Shannon ~ group_prefix + Depth,
-                   data     = plot_df,
-                   taus     = c(0.25, 0.75),
-                   contrast = c(0, -1, 0, 0, 1, 0),
-                   alternative = "greater")
-```
-
-#### Dispersion difference (adjusting for cohort and depth)
-
-```r
-deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
-                   data     = plot_df,
-                   taus     = c(0.25, 0.75),
-                   contrast = c(0, -1, 0, 0, 0, 1, 0, 0),
-                   alternative = "greater")
-```
-
-#### Asymmetry difference (3 quantiles, unadjusted)
-
-```r
-deshape_wald_contrast(Shannon ~ group_prefix,
-                   data     = plot_df,
-                   taus     = c(0.1, 0.5, 0.9),
-                   contrast = c(0, 1, 0, -2, 0, 1),
-                   alternative = "greater")
-```
-
-#### Asymmetry difference (adjusting for cohort and depth)
-
-```r
-deshape_wald_contrast(Shannon ~ group_prefix + Cohort + Depth,
-                   data     = plot_df,
-                   taus     = c(0.1, 0.5, 0.9),
-                   contrast = c(0, 1, 0, 0, 0, -2, 0, 0, 0, 1, 0, 0),
-                   alternative = "greater")
-```
 
 ## 3. GLM Residual Shape Test
 

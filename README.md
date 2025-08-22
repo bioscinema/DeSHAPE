@@ -74,23 +74,15 @@ deshape_perm_multi(response ~ group,
 
 ---
 
-\textbf{2. Quantile Regression Contrast Test}
+## 2. Quantile Regression Contrast Test
 
-\textbf{2.1 \texttt{deshape\_wald\_contrast()}}
+### 2.1 `deshape_wald_contrast()`
 
-\texttt{deshape\_wald\_contrast()} performs a Wald-type test on linear contrasts 
-of quantile-regression coefficients across multiple quantile levels. 
-It allows both \textbf{pre-specified contrasts} 
-(\texttt{mode = "customize"}) and \textbf{automatically constructed contrasts} 
-for common hypotheses about \textbf{dispersion} and \textbf{symmetry}.
+`deshape_wald_contrast()` performs a Wald-type test on linear contrasts of quantile-regression coefficients across multiple quantile levels. It supports both **pre-specified contrasts** (`mode = "customize"`) and **automatic contrasts** for testing **dispersion** or **symmetry**.
 
-The function fits separate quantile regressions at each specified quantile 
-(\texttt{taus}) using \texttt{quantreg::rq}, stacks the coefficients, 
-and builds an asymptotic covariance matrix using kernel density estimates 
-of residuals at 0. A Wald $\chi^2$ statistic (1 d.f.) is then computed, 
-and p-values are returned under the chosen alternative hypothesis.
+The function fits quantile regressions at each specified quantile (`taus`) using `quantreg::rq`, stacks the coefficients, and builds an asymptotic covariance matrix from kernel density estimates of residuals. A Wald χ² statistic (1 d.f.) is computed, and p-values are returned.
 
-\begin{verbatim}
+```r
 deshape_wald_contrast(
   formula, data,
   mode = c("customize", "dispersion", "symmetry"),
@@ -99,95 +91,77 @@ deshape_wald_contrast(
   alternative = c("two.sided", "greater", "less"),
   kernel = "gaussian"
 )
-\end{verbatim}
+```
 
-\textbf{Arguments}
-\begin{itemize}
-  \item \texttt{formula}: model formula of the form \texttt{response ~ predictors}. 
-        For non-custom modes (\texttt{"dispersion"}, \texttt{"symmetry"}), 
-        the first non-intercept term must be a binary group variable 
-        that produces exactly one column in \texttt{model.matrix}.
-  \item \texttt{data}: a data frame containing all variables in the formula.
-  \item \texttt{mode}: how to construct the contrast.
-    \begin{itemize}
-      \item \texttt{"dispersion"} – automatically compares group effects 
-            between two quantiles (default \texttt{taus = c(0.25, 0.75)}).
-      \item \texttt{"symmetry"} – automatically compares group effects 
-            across three quantiles with weights +1, –2, +1 
-            (default \texttt{taus = c(0.1, 0.5, 0.9)}).
-      \item \texttt{"customize"} – user must provide both \texttt{taus} 
-            and a full contrast vector.
-    \end{itemize}
-  \item \texttt{taus}: numeric vector of quantile levels in ascending order. 
-        Required for \texttt{mode = "customize"}. Must have length 2 
-        for \texttt{"dispersion"} and 3 for \texttt{"symmetry"}.
-  \item \texttt{contrast}: numeric vector (or single-column matrix) of 
-        length $p \times K$, where $p = \texttt{ncol(model.matrix(...))}$ 
-        and $K = \texttt{length(taus)}$. Only used when 
-        \texttt{mode = "customize"}.
-  \item \texttt{alternative}: \texttt{"two.sided"} (default), 
-        \texttt{"greater"}, or \texttt{"less"}.
-  \item \texttt{kernel}: currently only \texttt{"gaussian"} is supported.
-\end{itemize}
+#### Arguments
+- **formula**: model formula, e.g. `response ~ predictors`.  
+  - For non-custom modes, the **first non-intercept term** must be a **binary group variable** producing exactly one column in `model.matrix`.  
+- **data**: data frame with variables in `formula`.  
+- **mode**: contrast construction mode.  
+  - `"dispersion"`: compares group effects between two quantiles (default `taus = c(0.25, 0.75)`).  
+  - `"symmetry"`: compares group effects across three quantiles with weights +1, –2, +1 (default `taus = c(0.1, 0.5, 0.9)`).  
+  - `"customize"`: user supplies both `taus` and `contrast`.  
+- **taus**: numeric vector of quantile levels (ascending).  
+  - Required for `"customize"`.  
+  - Must be length 2 for `"dispersion"`, 3 for `"symmetry"`.  
+- **contrast**: numeric vector (or single-column matrix) of length `p × K`, where `p = ncol(model.matrix(...))` and `K = length(taus)`. Used only when `mode = "customize"`.  
+- **alternative**: `"two.sided"` (default), `"greater"`, or `"less"`.  
+- **kernel**: currently only `"gaussian"` is supported.  
 
-\textbf{Value}
-\begin{itemize}
-  \item \texttt{test\_stat}: Wald $\chi^2$ statistic (df = 1).
-  \item \texttt{p\_value}: p-value computed using the chosen alternative hypothesis.
-\end{itemize}
+#### Value
+Returns a list with:  
+- `test_stat`: Wald χ² statistic (1 d.f.)  
+- `p_value`: p-value under the specified alternative  
 
-\textbf{2.2 Coefficient stacking and contrast construction}
+---
 
-At each quantile $\tau$, the regression has $p$ coefficients. 
-These are \textbf{stacked by quantile} into a vector of length $p \times K$:
+### 2.2 Coefficient stacking and contrast construction
 
-\[
-[\beta_{\text{Int}}(\tau_1), \beta_{\text{group}}(\tau_1), 
- \beta_{\text{cov1}}(\tau_1), \ldots, 
- \beta_{\text{Int}}(\tau_K), \beta_{\text{group}}(\tau_K), 
- \beta_{\text{cov1}}(\tau_K), \ldots ]
-\]
+At each quantile τ, the regression has `p` coefficients. These are **stacked by quantile** into a vector of length `p × K`:
 
-A \textbf{contrast vector} selects and compares coefficients across quantiles.
-\begin{itemize}
-  \item \textbf{Dispersion test (auto):} with $\tau = (\tau_L, \tau_U)$, 
-        places –1 on the group coefficient at $\tau_L$ 
-        and +1 at $\tau_U$.
-  \item \textbf{Symmetry test (auto):} with 
-        $\tau = (\tau_L, \tau_M, \tau_U)$, 
-        places +1, –2, +1 on the group coefficients 
-        at $\tau_L$, $\tau_M$, and $\tau_U$.
-  \item \textbf{Customize:} any valid contrast can be supplied 
-        (length = $p \times K$).
-\end{itemize}
+```
+[Int τ1, group τ1, cov1 τ1, cov2 τ1, ...,
+ Int τ2, group τ2, cov1 τ2, cov2 τ2, ...,
+ ...
+ Int τK, group τK, cov1 τK, cov2 τK, ...]
+```
 
-\textbf{2.3 Examples}
+A **contrast vector** selects and compares coefficients across quantiles:  
+- **Dispersion (auto):** with `taus = (τL, τU)`, places –1 on the group at τL and +1 at τU.  
+- **Symmetry (auto):** with `taus = (τL, τM, τU)`, places +1, –2, +1 on the group at τL, τM, τU.  
+- **Customize:** user-defined, any valid contrast of length `p × K`.  
 
-\textbf{Example A: Dispersion test (automatic)}  
-Tests whether the group effect increases from $\tau = 0.25$ to $\tau = 0.75$.
-\begin{verbatim}
+---
+
+### 2.3 Examples
+
+**A. Dispersion test (automatic)**  
+Tests whether the group effect increases from τ = 0.25 to τ = 0.75.
+
+```r
 deshape_wald_contrast(
   Shannon ~ group + Depth,
   data = df,
   mode = "dispersion"
 )
-\end{verbatim}
+```
 
-\textbf{Example B: Symmetry test (automatic)}  
-Tests whether the group effect is symmetric across $\tau = 0.1, 0.5, 0.9$.
-\begin{verbatim}
+**B. Symmetry test (automatic)**  
+Tests whether the group effect is symmetric across τ = 0.1, 0.5, 0.9.
+
+```r
 deshape_wald_contrast(
   Shannon ~ group + Depth,
   data = df,
   mode = "symmetry"
 )
-\end{verbatim}
+```
 
-\textbf{Example C: Custom contrast}  
-Explicitly test whether $\beta_{\text{group}}(0.75) - \beta_{\text{group}}(0.25) = 0$. 
-Here, $p = 3$ (Intercept, group, Depth) and $K = 2$ 
-($\texttt{taus} = 0.25, 0.75$), so $\texttt{length(contrast)} = 6$.
-\begin{verbatim}
+**C. Custom contrast**  
+Explicitly test whether `β_group(0.75) – β_group(0.25) = 0`.  
+Here, `p = 3` (Intercept, group, Depth), `K = 2` (`taus = c(0.25, 0.75)`), so `length(contrast) = 6`.
+
+```r
 taus <- c(0.25, 0.75)
 contrast <- c(0, -1, 0, 0, +1, 0)
 
@@ -199,19 +173,14 @@ deshape_wald_contrast(
   contrast = contrast,
   alternative = "greater"
 )
-\end{verbatim}
+```
 
-\textbf{2.4 Practical notes}
-\begin{itemize}
-  \item For median differences only, a single quantile regression 
-        at $\tau = 0.5$ followed by \texttt{summary()} 
-        may be simpler and more efficient.
-  \item If the group variable is not binary or expands to multiple columns 
-        in \texttt{model.matrix}, you must use 
-        \texttt{mode = "customize"}.
-  \item Ensure \texttt{taus} are strictly ascending.
-\end{itemize}
+---
 
+### 2.4 Practical notes
+- For median-only differences, fitting a single quantile regression at τ = 0.5 and calling `summary()` may be quicker.  
+- If the group variable is not binary or expands to multiple columns, use `mode = "customize"`.  
+- Ensure `taus` are strictly ascending.  
 
 ## 3. GLM Residual Shape Test
 

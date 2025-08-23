@@ -73,7 +73,7 @@ p1 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
                      label.y  = max(plot_df$Shannon) * 1.05,
-                     size     = 6,
+                     size     = 5.5,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
                                "MMC" = "#E69F00",
@@ -264,7 +264,7 @@ p2 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
                      label.y  = max(plot_df$Shannon) * 1.05,
-                     size     = 6,
+                     size     = 5.5,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
                                "MMC" = "#E69F00",
@@ -451,7 +451,7 @@ p3 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
                      label.y  = max(plot_df$Shannon) * 1.05,
-                     size     = 6,
+                     size     = 5.5,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
                                "MMC" = "#E69F00",
@@ -642,7 +642,7 @@ p4 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
                      label.y  = max(plot_df$Shannon) * 1.05,
-                     size     = 6,
+                     size     = 5.5,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
                                "MMC" = "#E69F00",

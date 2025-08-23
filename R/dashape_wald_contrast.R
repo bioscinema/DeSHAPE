@@ -151,8 +151,8 @@ deshape_wald_contrast <- function(formula, data,
   
   assign_vec <- attr(X, "assign")
   idx_group <- which(assign_vec == 1L)
-  if (mode != "customize" && length(idx_group) != 1L)
-    stop("For non-custom modes, the first non-intercept term must map to exactly one design column (binary group).")
+  #if (mode != "customize" && length(idx_group) != 1L)
+  #  stop("For non-custom modes, the first non-intercept term must map to exactly one design column (binary group).")
   
   if (mode != "customize" && !is.null(contrast))
     warning("'contrast' is ignored unless mode = 'customize'; auto-constructing from 'mode'.")
@@ -198,14 +198,16 @@ deshape_wald_contrast <- function(formula, data,
     for (k in seq_len(K)) {
       off <- (k - 1L) * p
       if (mode == "dispersion") {
-        # K == 2: lower tau gets -1 on group; upper tau gets +1
-        if (k == 1L) contrast[off + idx_group] <- -1
-        if (k == K)  contrast[off + idx_group] <- +1
+        if (length(idx_group) != 2L)
+          stop("Dispersion mode expects exactly two proxy columns in the first non-intercept term.")
+        if (k == 1L) contrast[off + idx_group] <- c(-1, +1)  # low tau
+        if (k == 2L) contrast[off + idx_group] <- c(+1, -1)  # high tau
       } else if (mode == "symmetry") {
-        # K == 3: weights +1, -2, +1 across taus on the group column
-        if (k == 1L) contrast[off + idx_group] <- +1
-        if (k == 2L) contrast[off + idx_group] <- -2
-        if (k == 3L) contrast[off + idx_group] <- +1
+        if (length(idx_group) != 2L)
+          stop("Symmetry mode expects exactly two proxy columns in the first non-intercept term.")
+        if (k == 1L) contrast[off + idx_group] <- c(+1, -1)
+        if (k == 2L) contrast[off + idx_group] <- c(-2, +2)
+        if (k == 3L) contrast[off + idx_group] <- c(+1, -1)
       }
     }
   } else {

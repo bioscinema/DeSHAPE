@@ -41,6 +41,7 @@ deshape_perm_multi <- function(formula, data, mode = c("center", "dispersion", "
     result <- perm_asymmetry_anova(data, outcome = response, group = predictor, B = perm, seed = seed)
     cat("Permutation p-value:", result$p.value, "\n")
   } 
+  return(result$p.value)
 }
 
 # Internal helper: not exported

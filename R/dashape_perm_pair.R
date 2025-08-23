@@ -53,6 +53,7 @@ deshape_perm_pair <- function(formula, data,
     result <- perm_asymmetry_test(x = x, y = y, B = perm, alternative = alternative, seed = seed)
     cat("Permutation p-value:", result$p.value, "\n")
   } 
+  return(result$p.value)
 }
 
 # Internal helper: not exported

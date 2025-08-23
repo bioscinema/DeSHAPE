@@ -23,6 +23,7 @@ stat_deshape_compare(
   show.legend = NA,
   inherit.aes = TRUE,
   confounder_data = NULL,
+  alternative = "two.sided",
   ...
 )
 }

@@ -148,6 +148,7 @@ stat_deshape_compare <- function(
     show.legend = NA,
     inherit.aes = TRUE,
     confounder_data = NULL,
+    alternative = "two.sided",
     ...
 ) {
   layer(
@@ -171,6 +172,7 @@ stat_deshape_compare <- function(
       vjust = vjust,
       na.rm = na.rm,
       confounder_data = confounder_data,
+      alternative = alternative,
       ...
     )
   )
@@ -186,7 +188,7 @@ StatDeshapeCompare <- ggplot2::ggproto(
                            label.sep, label.prefix,
                            label.x.npc, label.y.npc,
                            label.x, label.y, vjust,
-                           confounder_data = NULL) {
+                           confounder_data = NULL,alternative = "two.sided") {
     
     # ---- helpers ------------------------------------------------------------
     fmt_p <- function(p) {
@@ -228,7 +230,7 @@ StatDeshapeCompare <- ggplot2::ggproto(
       y = data$y,
       x = factor(data$x) # treat groups categorically
     )
-    
+    group <- length(levels(df$x))
     # If confounders were requested, try to carry them over from 'data'
     # If confounders were requested, pull them from confounder_data
     if (!is.null(confounder) && length(confounder) > 0) {
@@ -269,47 +271,74 @@ StatDeshapeCompare <- ggplot2::ggproto(
     if (is.null(confounder) || length(confounder) == 0) {
       # Unadjusted: use your permutation engine for the three modes
       set.seed(seed)
-      center_obj <- deshape_perm_multi(
-        y ~ x, data = df, mode = "center", perm = perm, seed = seed
-      )
-      disp_obj <- deshape_perm_multi(
-        y ~ x, data = df, mode = "dispersion", perm = perm, seed = seed
-      )
-      asym_obj <- deshape_perm_multi(
-        y ~ x, data = df, mode = "skewness", perm = perm, seed = seed
-      )
+      if (group > 2){
+        center_obj <- deshape_perm_multi(
+          y ~ x, data = df, mode = "center", perm = perm, seed = seed
+        )
+        disp_obj <- deshape_perm_multi(
+          y ~ x, data = df, mode = "dispersion", perm = perm, seed = seed
+        )
+        asym_obj <- deshape_perm_multi(
+          y ~ x, data = df, mode = "skewness", perm = perm, seed = seed
+        )
+      } else {
+        center_obj <- deshape_perm_pair(
+          y ~ x, data = df, mode = "center", perm = perm, seed = seed
+        )
+        disp_obj <- deshape_perm_pair(
+          y ~ x, data = df, mode = "dispersion", perm = perm, seed = seed
+        )
+        asym_obj <- deshape_perm_pair(
+          y ~ x, data = df, mode = "skewness", perm = perm, seed = seed
+        )
+      }
+        
       
       p_center <- center_obj
       p_disp   <- disp_obj
       p_asym   <- asym_obj
       
     } else {
-      # Adjusted: Center via median (tau=0.5) QR ANOVA; Disp/Asym via Wald-contrast
-      rhs_full <- paste(c("x", confounder), collapse = " + ")
-      f_full   <- stats::as.formula(paste("y ~", rhs_full))
-      f_null   <- stats::as.formula(paste("y ~", paste(confounder, collapse = " + ")))
-      
-      # Center (location) via quantile regression ANOVA
-      fit_full <- quantreg::rq(f_full, data = df, tau = 0.5, method = "fn")
-      fit_null <- quantreg::rq(f_null, data = df, tau = 0.5, method = "fn")
-      a <- stats::anova(fit_null, fit_full, joint = TRUE)
-      # Extract p-value from the anova table (second row, last column typically)
-      p_center <- tryCatch({
-        # Try last column of second row
-        as.numeric(a$table[1,4])
-      }, error = function(e) NA_real_)
-      
+      if(group > 2){
+        # Adjusted: Center via median (tau=0.5) QR ANOVA; Disp/Asym via Wald-contrast
+        rhs_full <- paste(c("x", confounder), collapse = " + ")
+        f_full   <- stats::as.formula(paste("y ~", rhs_full))
+        f_null   <- stats::as.formula(paste("y ~", paste(confounder, collapse = " + ")))
+        
+        # Center (location) via quantile regression ANOVA
+        fit_full <- quantreg::rq(f_full, data = df, tau = 0.5, method = "fn")
+        fit_null <- quantreg::rq(f_null, data = df, tau = 0.5, method = "fn")
+        a <- stats::anova(fit_null, fit_full, joint = TRUE)
+        # Extract p-value from the anova table (second row, last column typically)
+        p_center <- tryCatch({
+          # Try last column of second row
+          as.numeric(a$table[1,4])
+        }, error = function(e) NA_real_)
+        
+      } else {
+        rhs_full <- paste(c("x", confounder), collapse = " + ")
+        f_full   <- stats::as.formula(paste("y ~", rhs_full))
+        f_null   <- stats::as.formula(paste("y ~", paste(confounder, collapse = " + ")))
+        qr_fit_d_c <- rq(f_full,
+                         data = df,
+                         tau = 0.5,
+                         method = "fn")
+        set.seed(seed)
+        s = summary(qr_fit_d_c, se = "boot") 
+        p_center <- s$coefficients[2, "Pr(>|t|)"]
+      }
+        
       # Dispersion
       disp_obj <- deshape_wald_contrast(
         f_full, data = df, mode = "dispersion",
-        alternative = "two.sided", kernel = "gaussian"
+        alternative = alternative, kernel = "gaussian"
       )
       p_disp <-disp_obj$p_value
       
       # Asymmetry (symmetry test)
       asym_obj <- deshape_wald_contrast(
         f_full, data = df, mode = "symmetry",
-        alternative = "two.sided", kernel = "gaussian"
+        alternative = alternative, kernel = "gaussian"
       )
       p_asym <- asym_obj$p_value
     }

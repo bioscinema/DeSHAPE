@@ -141,7 +141,10 @@ deshape_wald_contrast <- function(formula, data,
   X <- model.matrix(formula, data)
   y <- model.response(model.frame(formula, data))
   p <- ncol(X)
-  
+  mf0     <- model.frame(formula, data)
+  x_name  <- attr(terms(mf0), "term.labels")[1L]
+  x0      <- mf0[[x_name]]
+  n_group <- if (is.factor(x0)) nlevels(droplevels(x0)) else length(unique(x0))
   if (mode == "dispersion" && K != 2L)
     stop("Dispersion mode requires exactly 2 quantiles (low, high).")
   if (mode == "symmetry" && K != 3L)
@@ -193,21 +196,35 @@ deshape_wald_contrast <- function(formula, data,
   
   # ---- Build or validate contrast ------------------------------------------
   if (mode != "customize") {
-    # Auto-construct contrast that targets the first non-intercept (binary group) column
-    contrast <- numeric(p * K)
-    for (k in seq_len(K)) {
-      off <- (k - 1L) * p
+    if(n_group > 2){
+      contrast <- numeric(p * K)
+      for (k in seq_len(K)) {
+        off <- (k - 1L) * p
+        if (mode == "dispersion") {
+          if (length(idx_group) != 2L)
+            stop("Dispersion mode expects exactly two proxy columns in the first non-intercept term.")
+          if (k == 1L) contrast[off + idx_group] <- c(-1, +1)  # low tau
+          if (k == 2L) contrast[off + idx_group] <- c(+1, -1)  # high tau
+        } else if (mode == "symmetry") {
+          if (length(idx_group) != 2L)
+            stop("Symmetry mode expects exactly two proxy columns in the first non-intercept term.")
+          if (k == 1L) contrast[off + idx_group] <- c(+1, -1)
+          if (k == 2L) contrast[off + idx_group] <- c(-2, +2)
+          if (k == 3L) contrast[off + idx_group] <- c(+1, -1)
+        }
+      }
+    } else {
+      if (length(idx_group) != 1L)
+        stop("For n_group = 2, the first non-intercept term must map to exactly one design column.")
+      contrast <- numeric(p * K)
+      g <- idx_group[1L]
       if (mode == "dispersion") {
-        if (length(idx_group) != 2L)
-          stop("Dispersion mode expects exactly two proxy columns in the first non-intercept term.")
-        if (k == 1L) contrast[off + idx_group] <- c(-1, +1)  # low tau
-        if (k == 2L) contrast[off + idx_group] <- c(+1, -1)  # high tau
+        contrast[g]         <- -1
+        contrast[p + g]     <- +1
       } else if (mode == "symmetry") {
-        if (length(idx_group) != 2L)
-          stop("Symmetry mode expects exactly two proxy columns in the first non-intercept term.")
-        if (k == 1L) contrast[off + idx_group] <- c(+1, -1)
-        if (k == 2L) contrast[off + idx_group] <- c(-2, +2)
-        if (k == 3L) contrast[off + idx_group] <- c(+1, -1)
+        contrast[g]         <- +1
+        contrast[p + g]     <- -2
+        contrast[2L * p + g] <- +1
       }
     }
   } else {

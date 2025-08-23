@@ -876,6 +876,32 @@ p1
 ```
 
 ```{r}
+pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("Cohort", "Depth"),
+    alternative = "greater",
+    label.y = max(plot_df$Shannon) * 0.98,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Tumour_Shannon_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+```{r}
 ### Permutation-based test
 
 ### DeSHAPE 1: Median Diff Test
@@ -1048,6 +1074,32 @@ p2
 ```
 
 ```{r}
+pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("Cohort", "Depth"),
+    alternative = "greater",
+    label.y = max(plot_df$Shannon) * 0.94,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Tumour_Faith_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+```{r}
 ### Permutation-based test
 
 ### DeSHAPE 1: Median Diff Test
@@ -1215,6 +1267,32 @@ p3 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
 
 ggsave("tumer_chao1_violin.eps", plot = p3, device = cairo_ps, width = 6, height = 5)
 p3
+```
+
+```{r}
+pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("Cohort", "Depth"),
+    alternative = "greater",
+    label.y = max(plot_df$Shannon) * 0.94,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Chao1 Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Tumour_chao1_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
 ```
 
 ```{r}
@@ -1389,6 +1467,32 @@ p4 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
 
 ggsave("tumer_qPD_violin.eps", plot = p4, device = cairo_ps, width = 6, height = 5)
 p4
+```
+
+```{r}
+pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("Cohort", "Depth"),
+    alternative = "greater",
+    label.y = max(plot_df$Shannon) * 0.95,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q =1) Index") +
+  scale_fill_manual(values = c("LTS" = "#E69F00", "STS" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Tumour_qPD_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
 ```
 
 ```{r}

@@ -95,7 +95,7 @@ pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
-                     label.y  = max(plot_df$Shannon) * 0.93,
+                     label.y  = max(plot_df$Shannon) * 0.93,label.x = 0.5,
                      size     = 6,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
@@ -285,7 +285,7 @@ pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
-                     label.y  = max(plot_df$Shannon) * 0.87,
+                     label.y  = max(plot_df$Shannon) * 0.87,label.x = 0.5,
                      size     = 6,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
@@ -473,6 +473,7 @@ pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
                      label.y  = max(plot_df$Shannon) * 0.87,
+                     label.x = 0.5,
                      size     = 6,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
@@ -662,7 +663,7 @@ pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
-                     label.y  = max(plot_df$Shannon) * 0.93,
+                     label.y  = max(plot_df$Shannon) * 0.93,label.x = 0.5,
                      size     = 6,
                      fontface = "bold") +
   scale_fill_manual(values = c("HC"  = "#56B4E9",
@@ -883,7 +884,7 @@ pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     confounder_data = plot_df,
     confounder = c("Cohort", "Depth"),
     alternative = "greater",
-    label.y = max(plot_df$Shannon) * 0.98,
+    label.y = max(plot_df$Shannon) * 0.98,label.x = 0.5,
     size = 6,
     fontface = "bold"
   ) +
@@ -1081,7 +1082,7 @@ pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     confounder_data = plot_df,
     confounder = c("Cohort", "Depth"),
     alternative = "greater",
-    label.y = max(plot_df$Shannon) * 0.94,
+    label.y = max(plot_df$Shannon) * 0.94,label.x = 0.5,
     size = 6,
     fontface = "bold"
   ) +
@@ -1277,7 +1278,7 @@ pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     confounder_data = plot_df,
     confounder = c("Cohort", "Depth"),
     alternative = "greater",
-    label.y = max(plot_df$Shannon) * 0.94,
+    label.y = max(plot_df$Shannon) * 0.94,label.x = 0.5,
     size = 6,
     fontface = "bold"
   ) +
@@ -1477,7 +1478,7 @@ pp = ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     confounder_data = plot_df,
     confounder = c("Cohort", "Depth"),
     alternative = "greater",
-    label.y = max(plot_df$Shannon) * 0.95,
+    label.y = max(plot_df$Shannon) * 0.95,label.x = 0.5,
     size = 6,
     fontface = "bold"
   ) +

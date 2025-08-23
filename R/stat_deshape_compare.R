@@ -356,7 +356,7 @@ StatDeshapeCompare <- ggplot2::ggproto(
     
     if (!is.null(label.x)) {
       x_pos <- label.x
-      h_just <- 0.5
+      h_just <- 0
     } else {
       x_calc <- pos_from_npc(label.x.npc, xrange[1], xrange[2], axis = "x")
       x_pos <- x_calc$v

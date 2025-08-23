@@ -68,7 +68,7 @@ plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
 
-p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+p1 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
@@ -85,10 +85,32 @@ p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
         axis.text       = element_text(face = "bold", size = 14),
         plot.title      = element_blank())
 
-ggsave("card_shannon_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("card_shannon_violin.eps", plot = p1, device = cairo_ps, width = 6, height = 5)
+p1
 
 ```
+
+```{r}
+pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
+                     label.y  = max(plot_df$Shannon) * 0.93,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_shannon_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
 
 ```{r}
 ### Permutation-based test
@@ -237,7 +259,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+p2 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
@@ -254,9 +276,31 @@ p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
         axis.text       = element_text(face = "bold", size = 14),
         plot.title      = element_blank())
 
-ggsave("card_FaithPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("card_FaithPD_violin.eps", plot = p2, device = cairo_ps, width = 6, height = 5)
+p2
 ```
+
+```{r}
+pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
+                     label.y  = max(plot_df$Shannon) * 0.87,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's PD Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_faithPD_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
 
 ```{r}
 ### Permutation-based test
@@ -402,7 +446,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+p3 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
@@ -419,9 +463,31 @@ p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
         axis.text       = element_text(face = "bold", size = 14),
         plot.title      = element_blank())
 
-ggsave("card_Chao1_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("card_Chao1_violin.eps", plot = p3, device = cairo_ps, width = 6, height = 5)
+p3
 ```
+
+```{r}
+pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
+                     label.y  = max(plot_df$Shannon) * 0.87,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Chao1 Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_Chao1_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
 
 ```{r}
 ### Permutation-based test
@@ -570,7 +636,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+p4 <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(method = "kruskal.test",
@@ -587,8 +653,37 @@ p <- ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
         axis.text       = element_text(face = "bold", size = 14),
         plot.title      = element_blank())
 
-ggsave("card_qPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("card_qPD_violin.eps", plot = p4, device = cairo_ps, width = 6, height = 5)
+p4
+```
+
+```{r}
+pp = ggplot(plot_df, aes(x = Status, y = Shannon, fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(confounder_data = plot_df, confounder = c("Depth","Gender" ,"HbA1c"),
+                     label.y  = max(plot_df$Shannon) * 0.93,
+                     size     = 6,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("HC"  = "#56B4E9",
+                               "MMC" = "#E69F00",
+                               "IHD" = "lightgreen")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q=1) Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("card_qPD_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+```{r}
+library(cowplot)
+library(magick)
+library(ggplot2)
+grid <- plot_grid(p1, p2, p3, p4, ncol = 2, align = "hv")
+ggsave("Card_combined_2x2.eps", grid, device = cairo_ps, width = 8, height = 8, units = "in")
 ```
 
 
@@ -756,7 +851,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+p1 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(
@@ -776,8 +871,8 @@ p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     plot.title = element_blank()
   )
 
-ggsave("tumer_shannon_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("tumer_shannon_violin.eps", plot = p1, device = cairo_ps, width = 6, height = 5)
+p1
 ```
 
 ```{r}
@@ -928,7 +1023,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+p2 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(
@@ -948,8 +1043,8 @@ p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     plot.title = element_blank()
   )
 
-ggsave("tumer_FaithsPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("tumer_FaithsPD_violin.eps", plot = p2, device = cairo_ps, width = 6, height = 5)
+p2
 ```
 
 ```{r}
@@ -1098,7 +1193,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+p3 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(
@@ -1118,8 +1213,8 @@ p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     plot.title = element_blank()
   )
 
-ggsave("tumer_chao1_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("tumer_chao1_violin.eps", plot = p3, device = cairo_ps, width = 6, height = 5)
+p3
 ```
 
 ```{r}
@@ -1272,7 +1367,7 @@ meta_df$SampleID <- rownames(meta_df)
 plot_df <- merge(shannon_df, meta_df, by = "SampleID")
 plot_df$Depth <- depth
 
-p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
+p4 <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_compare_means(
@@ -1292,8 +1387,16 @@ p <- ggplot(plot_df, aes(x = group_prefix, y = Shannon, fill = group_prefix)) +
     plot.title = element_blank()
   )
 
-ggsave("tumer_qPD_violin.eps", plot = p, device = cairo_ps, width = 6, height = 5)
-p
+ggsave("tumer_qPD_violin.eps", plot = p4, device = cairo_ps, width = 6, height = 5)
+p4
+```
+
+```{r}
+library(cowplot)
+library(magick)
+library(ggplot2)
+grid <- plot_grid(p1, p2, p3, p4, ncol = 2, align = "hv")
+ggsave("Tumour_combined_2x2.eps", grid, device = cairo_ps, width = 8, height = 8, units = "in")
 ```
 
 ```{r}

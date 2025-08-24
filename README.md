@@ -255,7 +255,7 @@ ggplot(plot_df, aes(x = Status, y = HbA1c...., fill = Status)) +
   )
 ```
 
-Data: Cardiometabolic (MetaCardis) cohort (HC / MMC / IHD).
+
 Figure:
 ![HbA1c with DeSHAPE p-values](Analysis/card_hba1c_wc.png)
 
@@ -266,10 +266,10 @@ ggplot(plot_df, aes(x = Status, y = HbA1c...., fill = Status)) +
   geom_violin(trim = FALSE) +
   geom_boxplot(width = 0.15, outlier.shape = NA) +
   stat_deshape_compare(
-    confounder      = c("Cohort","Depth"),
+    confounder      = c("Gender","Depth"),
     confounder_data = plot_df,        # must contain these columns
-    label.x.npc     = "right",
-    label.y.npc     = "top",
+    label.y  = max(plot_df$HbA1c....) * 0.9,
+    label.x  = 0.5,
     size            = 5,
     fontface        = "bold",
     alternative     = "two.sided"
@@ -278,8 +278,9 @@ ggplot(plot_df, aes(x = Status, y = HbA1c...., fill = Status)) +
   labs(x = NULL, y = "HbA1c (%)") +
   theme(legend.position = "none")
 ```
-Notes:
-  - 
+Figure:
+![HbA1c with DeSHAPE p-values](Analysis/card_hba1c_ca.png)
+
 ---
 
 ## Workflow Summary

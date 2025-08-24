@@ -291,5 +291,5 @@ Figure:
    covariate adjustment; for a simple median shift a single τ = 0.5
    quantile regression followed by `summary()` is usually quicker. Build your `contrast` vector carefully by indexing the relevant coefficient positions across quantile blocks.
 3. Use `deshape_glm_resid_test()` when you have limited sample size or want it as sensitivity/robustness check to Wald contrast method.
-
+4. To display the three p-values directly on your plots, add `stat_deshape_compare()` to your ggplot (unadjusted or covariate-adjusted).
 ---

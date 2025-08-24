@@ -31,6 +31,7 @@ library(DeSHAPE)
 | `deshape_perm_multi()`    | Permutation test for **>2 groups**                        | Exploratory tests (center, dispersion, asymmetry) for multiple groups                                                |
 | `deshape_wald_contrast()` | Quantile-regression-based **contrast test**               | Covariate-adjusted tests for center, dispersion, or asymmetry (sample size of each group > 30)                            |
 | `deshape_glm_resid_test()`| Residual-shape permutation test **after** a GLM fit       | Covariate-adjusted tests for center, dispersion, or asymmetry   |
+| `stat_deshape_compare()` | Add a single label to a ggplot panel showing three p-values (center, dispersion, asymmetry). | Quick visual reporting on plots; supports unadjusted permutation tests or covariate-adjusted QR/Wald contrasts. |
 
 
 
@@ -215,7 +216,70 @@ reflect all other covariate adjustments.
   - **`q = 0.25`** → `Q(0.75) - 2 × Q(0.5) + Q(0.25)`  
   - **`q = 0.10`** → `Q(0.90) - 2 × Q(0.5) + Q(0.10)`
 
+## 4. Plot Annotation with `stat_deshape_compare()`
 
+`stat_deshape_compare()` adds a compact, three-line label to your ggplot showing p-values for **Center**, **Dispersion**, and **Asymmetry**.
+
+- **Unadjusted mode** (no confounders): runs `deshape_perm_pair()` / `deshape_perm_multi()` internally.
+- **Adjusted mode** (with confounders): 
+  - Center via median (τ = 0.5) quantile-regression test,
+  - Dispersion & Asymmetry via `deshape_wald_contrast()` with `mode = "dispersion"` / `"symmetry"`.
+
+**Aesthetics required:** `x` (group), `y` (response).  
+**Common args:** `confounder`, `confounder_data`, `label.x/label.y` (absolute), or `label.x.npc/label.y.npc` (`"left"|"right"|"center"` or numeric in `[0,1]`), `label.prefix`, `label.sep`, `perm`, `seed`, `alternative`.
+
+### Example (Cardiometabolic / MetaCardis dataset; HC, MMC, IHD)
+
+```r
+ggplot(plot_df, aes(x = Status, y = HbA1c...., fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    label.y  = max(plot_df$HbA1c....) * 0.9,
+    label.x  = 0.5,           # center horizontally
+    size     = 5.5,
+    fontface = "bold"
+  ) +
+  scale_fill_manual(values = c(
+    "HC"  = "#56B4E9",
+    "MMC" = "#E69F00",
+    "IHD" = "lightgreen"
+  )) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "HbA1c (%)") +   # set to the actual measure shown
+  theme(
+    legend.position = "none",
+    axis.title.y    = element_text(face = "bold", size = 18),
+    axis.text       = element_text(face = "bold", size = 14),
+    plot.title      = element_blank()
+  )
+```
+
+Data: Cardiometabolic (MetaCardis) cohort (HC / MMC / IHD).
+Figure:
+![HbA1c with DeSHAPE p-values](Analysis/card_hba1c_wc.png)
+
+#### Adjusted example (with confounders)
+
+```r
+ggplot(plot_df, aes(x = Status, y = HbA1c...., fill = Status)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder      = c("Cohort","Depth"),
+    confounder_data = plot_df,        # must contain these columns
+    label.x.npc     = "right",
+    label.y.npc     = "top",
+    size            = 5,
+    fontface        = "bold",
+    alternative     = "two.sided"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "HbA1c (%)") +
+  theme(legend.position = "none")
+```
+Notes:
+  - 
 ---
 
 ## Workflow Summary

@@ -87,7 +87,7 @@
 #'                               B      = 499)
 #' out$p.value
 #' }
-#' @importFrom stats glm residuals quantile median
+#' @importFrom stats glm residuals quantile median gamlss.dist
 #' @export
 deshape_glm_resid_test <- function(
     formula, data,

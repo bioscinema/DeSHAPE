@@ -8,12 +8,12 @@ deshape_glm_resid_test(
   formula,
   data,
   mode = c("center", "dispersion", "skewness"),
-  family = gaussian(),
   group,
   alternative = c("two.sided", "greater", "less"),
   q = 0.25,
   B = 999,
-  seed = NULL
+  seed = NULL,
+  family = gamlss.dist::JSU()
 )
 }
 \arguments{
@@ -26,9 +26,6 @@ deshape_glm_resid_test(
 \item{mode}{Character string indicating which aspect of residual
 shape to test; one of \code{"center"}, \code{"dispersion"},
 \code{"skewness"}.  See *Test statistics*.}
-
-\item{family}{A GLM family object (default
-\code{\link[stats]{gaussian}}).}
 
 \item{group}{**Character string** giving the column name in
 \code{data} that defines the groups whose residual shapes are
@@ -44,6 +41,9 @@ contrasts; must satisfy \eqn{0 < q < 0.5}.  Default \code{0.25}.}
 \code{999}).}
 
 \item{seed}{Optional integer seed for reproducibility.}
+
+\item{family}{A GLM family object (default
+\code{\link[stats]{gaussian}}).}
 }
 \value{
 A list with components
@@ -110,8 +110,8 @@ dat <- data.frame(y, x1, g)
 # Test equality of residual dispersion across groups
 out <- deshape_glm_resid_test(y ~ x1,
                               data  = dat,
-                              family = gaussian(),
                               group  = "g",
+                              alternative = "two.sided",
                               mode   = "dispersion",
                               B      = 499)
 out$p.value

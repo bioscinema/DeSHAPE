@@ -1637,3 +1637,665 @@ deshape_glm_resid_test(Shannon ~ group_prefix + Cohort + Depth,
                        alternative = "greater",
                        q = 0.1, B = 999, seed = 2025)$p.value
 ```
+
+# Hadza
+
+```{r}
+load("../Real_Data/hadza.RData")
+```
+
+
+
+```{r}
+library(phyloseq)
+library(dplyr)
+## 1. Keep only 2014 seasons ---------------------------------------------
+
+# subset samples whose season starts with "2014-"
+physeq_2014 <- subset_samples(physeq, grepl("^2014-", season))
+
+## 2. Create two new sample variables: Late/Early and Wet/Dry ------------
+
+# pull sample_data into a data.frame
+meta <- as(sample_data(physeq_2014), "data.frame")
+
+# remove the "2014-" prefix, leaving "LW", "EW", "LD", "ED", etc.
+season_code <- sub("^2014-", "", meta$season)
+
+# first letter: L/E  → Late/Early
+phase_code <- substr(season_code, 1, 1)
+
+# second letter: W/D → Wet/Dry
+wetdry_code <- substr(season_code, 2, 2)
+
+meta$season_phase <- factor(
+  ifelse(phase_code == "L", "Late",
+         ifelse(phase_code == "E", "Early", NA)),
+  levels = c("Early", "Late")
+)
+
+meta$season_wetdry <- factor(
+  ifelse(wetdry_code == "W", "Wet",
+         ifelse(wetdry_code == "D", "Dry", NA)),
+  levels = c("Dry", "Wet")
+)
+
+```
+
+## Shannon
+
+```{r}
+otu_mat = otu_table(physeq_2014)
+if (taxa_are_rows(physeq_2014)) {
+  otu_mat <- t(otu_mat)
+}
+shannon_vec <- diversity(otu_mat, index = "shannon")
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+
+if (!"SampleID" %in% colnames(meta)) {
+  meta$SampleID <- rownames(meta)
+}
+plot_df <- merge(shannon_df, meta, by = "SampleID")
+
+
+
+p1 <- ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "wilcox.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 5.5,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("Wet"  = "#56B4E9",
+                               "Dry" = "#E69F00")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("hadza_shannon_violin.eps", plot = p1, device = cairo_ps, width = 6, height = 5)
+p1
+
+```
+
+
+```{r}
+pp = ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("season_phase"),
+    alternative = "two.sided",
+    label.y = max(plot_df$Shannon) * 0.90,label.x = 0.5,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("Dry" = "#E69F00", "Wet" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Hadza_Shannon_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+
+```{r}
+### Permutation-based test
+
+### DeSHAPE 1: Median Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+
+### DeSHAPE 2: Dispersion Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+### DeSHAPE 3: Asymmetry Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+```
+
+```{r}
+### DeSHAPE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ season_wetdry,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ season_wetdry + season_phase,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+
+
+### DeSHAPE 2: Dispersion Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+### DeSHAPE 3: Asymmetry Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+```
+
+
+## Faith's PD
+
+```{r}
+otu_mat = otu_table(physeq_2014)
+if (taxa_are_rows(physeq_2014)) {
+  otu_mat <- t(otu_mat)
+}
+
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = meta$PD_whole_tree)
+
+
+if (!"SampleID" %in% colnames(meta)) {
+  meta$SampleID <- rownames(meta)
+}
+plot_df <- merge(shannon_df, meta, by = "SampleID")
+
+
+
+p2 <- ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "wilcox.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 5.5,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("Wet"  = "#56B4E9",
+                               "Dry" = "#E69F00")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's PD Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("hadza_FaithPD_violin.eps", plot = p2, device = cairo_ps, width = 6, height = 5)
+p2
+
+```
+
+```{r}
+pp = ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("season_phase"),
+    alternative = "two.sided",
+    label.y = max(plot_df$Shannon) * 0.90,label.x = 0.5,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Faith's PD Index") +
+  scale_fill_manual(values = c("Dry" = "#E69F00", "Wet" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Hadza_FaithsPD_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+
+```{r}
+### Permutation-based test
+
+### DeSHAPE 1: Median Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+
+### DeSHAPE 2: Dispersion Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+### DeSHAPE 3: Asymmetry Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+```
+
+```{r}
+### DeSHAPE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ season_wetdry,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ season_wetdry + season_phase,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+
+
+### DeSHAPE 2: Dispersion Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+### DeSHAPE 3: Asymmetry Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+```
+
+## Richness
+
+```{r}
+otu_mat = otu_table(physeq_2014)
+if (taxa_are_rows(physeq_2014)) {
+  otu_mat <- t(otu_mat)
+}
+shannon_vec <- rowSums(otu_mat > 0)
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+
+if (!"SampleID" %in% colnames(meta)) {
+  meta$SampleID <- rownames(meta)
+}
+plot_df <- merge(shannon_df, meta, by = "SampleID")
+
+
+
+p3 <- ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "wilcox.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 5.5,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("Wet"  = "#56B4E9",
+                               "Dry" = "#E69F00")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Richness Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("hadza_richness_violin.eps", plot = p3, device = cairo_ps, width = 6, height = 5)
+p3
+
+```
+
+```{r}
+pp = ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("season_phase"),
+    alternative = "two.sided",
+    label.y = max(plot_df$Shannon) * 0.90,label.x = 0.5,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "Richness Index") +
+  scale_fill_manual(values = c("Dry" = "#E69F00", "Wet" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Hadza_Richness_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+```{r}
+### Permutation-based test
+
+### DeSHAPE 1: Median Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+
+### DeSHAPE 2: Dispersion Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+### DeSHAPE 3: Asymmetry Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+```
+
+
+```{r}
+### DeSHAPE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ season_wetdry,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ season_wetdry + season_phase,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+
+
+### DeSHAPE 2: Dispersion Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+### DeSHAPE 3: Asymmetry Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+```
+
+## q-PD(q = 1)
+
+```{r}
+otu_mat = otu_table(physeq_2014)
+if (taxa_are_rows(physeq_2014)) {
+  otu_mat <- t(otu_mat)
+}
+tree = phy_tree(physeq_2014)
+shannon_vec <-  hill_phylo(comm = otu_mat, tree = tree, q = 1, rel_then_pool = FALSE)
+
+shannon_df <- data.frame(SampleID = rownames(otu_mat),
+                         Shannon = shannon_vec)
+
+
+if (!"SampleID" %in% colnames(meta)) {
+  meta$SampleID <- rownames(meta)
+}
+plot_df <- merge(shannon_df, meta, by = "SampleID")
+
+
+
+p4 <- ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_compare_means(method = "wilcox.test",
+                     label.y  = max(plot_df$Shannon) * 1.05,
+                     size     = 5.5,
+                     fontface = "bold") +
+  scale_fill_manual(values = c("Wet"  = "#56B4E9",
+                               "Dry" = "#E69F00")) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q = 1) Index") +
+  theme(legend.position = "none",
+        axis.title.y    = element_text(face = "bold", size = 18),
+        axis.text       = element_text(face = "bold", size = 14),
+        plot.title      = element_blank())
+
+ggsave("hadza_qpd_violin.eps", plot = p4, device = cairo_ps, width = 6, height = 5)
+p4
+
+```
+
+
+```{r}
+pp = ggplot(plot_df, aes(x = season_wetdry, y = Shannon, fill = season_wetdry)) +
+  geom_violin(trim = FALSE) +
+  geom_boxplot(width = 0.15, outlier.shape = NA) +
+  stat_deshape_compare(
+    confounder_data = plot_df,
+    confounder = c("season_phase"),
+    alternative = "two.sided",
+    label.y = max(plot_df$Shannon) * 0.90,label.x = 0.5,
+    size = 6,
+    fontface = "bold"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(x = NULL, y = "q-PD (q = 1) Index") +
+  scale_fill_manual(values = c("Dry" = "#E69F00", "Wet" = "#56B4E9")) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(face = "bold", size = 18),
+    axis.text = element_text(face = "bold", size = 14),
+    axis.title.x = element_blank(),
+    plot.title = element_blank()
+  )
+
+ggsave("Hadza_qPD_deshape.eps", plot = pp, device = cairo_ps, width = 6, height = 5)
+```
+
+```{r}
+### Permutation-based test
+
+### DeSHAPE 1: Median Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "center",     # or "dispersion", "skewness
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+
+### DeSHAPE 2: Dispersion Diff Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "dispersion",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+
+### DeSHAPE 3: Asymmetry Test
+deshape_perm_pair(Shannon ~ season_wetdry,
+               data        = plot_df,
+               mode        = "skewness",     # or "dispersion", "skewness"
+               alternative = "two.sided",
+               perm        = 10000,
+               seed = 2025)
+```
+
+```{r}
+### DeSHAPE 1: Median Diff via Quantile Reg
+qr_fit <- rq(Shannon ~ season_wetdry,
+             data = plot_df,
+             tau = 0.5,
+             method = "fn")
+
+set.seed(2025)
+summary(qr_fit, se = "boot") 
+
+# adjust sequencing depth
+qr_fit_d <- rq(Shannon ~ season_wetdry + season_phase,
+               data = plot_df,
+               tau = 0.5,
+               method = "fn")
+
+set.seed(2025)
+summary(qr_fit_d, se = "boot") 
+
+
+
+### DeSHAPE 2: Dispersion Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "dispersion",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+### DeSHAPE 3: Asymmetry Diff via Quantile Reg
+deshape_wald_contrast(Shannon ~ season_wetdry,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+# adjust sequencing depth
+deshape_wald_contrast(Shannon ~ season_wetdry + season_phase,
+                   data = plot_df,
+                   mode = "symmetry",
+                   alternative = "two.sided",
+                   kernel = "gaussian")
+
+
+
+```
+
+
+```{r}
+library(cowplot)
+library(magick)
+library(ggplot2)
+grid <- plot_grid(p1, p2, p3, p4, ncol = 2, align = "hv")
+ggsave("Hadza_combined_2x2.eps", grid, device = cairo_ps, width = 8, height = 8, units = "in")
+```
+

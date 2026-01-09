@@ -1,0 +1,1387 @@
+---
+title: "Analysis"
+author: "Yiqian Zhang"
+date: "2025-11-07"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+#data <- read.csv("sim_summary_all_combined.csv")
+data <- read.csv("sim_summary_1122.csv")
+skew <- read.csv("sim_summary_skew_combined.csv")
+skew_confounder <- read.csv("sim_summary_skew_confounder_combined.csv")
+head(data)
+head(skew)
+head(skew_confounder)
+
+## --- 1. Build matching keys for each dataset ---
+
+key_data_no  <- with(data, type == "skew" & confounder == "no")
+key_data_yes <- with(data, type == "skew" & confounder == "yes")
+
+# Character keys for matching
+k_data_no  <- with(data[key_data_no, ],  paste(n1, n2, delta0, rep_id, sep = "_"))
+k_data_yes <- with(data[key_data_yes, ], paste(n1, n2, delta0, rep_id, sep = "_"))
+
+k_skew  <- with(skew,            paste(n1, n2, delta0, rep_id, sep = "_"))
+k_skewc <- with(skew_confounder, paste(n1, n2, delta0, rep_id, sep = "_"))
+
+# Indices in skew / skew_confounder that correspond to each data row
+m_no  <- match(k_data_no,  k_skew)
+m_yes <- match(k_data_yes, k_skewc)
+
+## Safety check (optional)
+if (any(is.na(m_no)))  warning("Some no-confounder skew rows did not find a match in `skew`.")
+if (any(is.na(m_yes))) warning("Some yes-confounder skew rows did not find a match in `skew_confounder`.")
+
+
+## --- 2. Replace columns for confounder == "no", type == "skew" using `skew` ---
+
+idx_no <- which(key_data_no)
+
+data$p_wilcox[idx_no]  <- skew$p_wilcox[m_no]
+data$p_ttest[idx_no]   <- skew$p_ttest[m_no]
+data$p_ks[idx_no]      <- skew$p_ks[m_no]
+data$p_deshape[idx_no] <- skew$p_deshape[m_no]
+# For the no-confounder skew case, glm/deconfounder columns can stay NA
+
+
+## --- 3. Replace columns for confounder == "yes", type == "skew" using `skew_confounder` ---
+
+idx_yes <- which(key_data_yes)
+
+data$p_wilcox[idx_yes]                 <- skew_confounder$p_wilcox[m_yes]
+data$p_ttest[idx_yes]                  <- skew_confounder$p_ttest[m_yes]
+data$p_ks[idx_yes]                     <- skew_confounder$p_ks[m_yes]
+data$p_deshape[idx_yes]                <- skew_confounder$p_deshape[m_yes]
+data$p_deshape_glm[idx_yes]            <- skew_confounder$p_deshape_glm[m_yes]
+data$p_ks_glm[idx_yes]                 <- skew_confounder$p_ks_glm[m_yes]
+data$p_deshape_deconfounder[idx_yes]   <- skew_confounder$p_deshape_deconfounder[m_yes]
+
+## Done: `data` now has skew results plugged in from the two combined datasets.
+
+```
+
+# Pre-Analysis
+
+```{r}
+checkconfounderskew <- data %>%
+  filter(type == "skew", confounder == "yes")
+summary(checkconfounderskew$p_deshape_deconfounder)
+hist(checkconfounderskew$p_deshape_deconfounder)
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(purrr)
+
+## -----------------------------
+## 0. Setup
+## -----------------------------
+# significance level
+alpha <- 0.05
+
+# color palette for sample size
+n_colors <- c(
+  "10"  = "#6090c1",
+  "30"  = "#acd2e5",
+  "50"  = "#fef9b7",
+  "70"  = "#fee395",
+  "90"  = "#f2724d",
+  "110" = "#d7312d"
+)
+
+## -----------------------------
+## 1. Reshape data to long format
+## -----------------------------
+data_long <- data %>%
+  mutate(n = n1) %>%   
+  filter(n < 120) %>%
+  pivot_longer(
+    cols = starts_with("p_"),
+    names_to  = "method",
+    values_to = "p_value"
+  ) %>%
+  # keep only non-NA p-values
+  filter(!is.na(p_value)) %>%
+  # remove "p_" prefix from method name
+  mutate(method = str_remove(method, "^p_"))
+
+## -----------------------------
+## 2. Summary for type I error (delta0 = 1)
+##    type I error = rejection rate at delta0 = 1
+## -----------------------------
+type1_summary <- data_long %>%
+  filter(delta0 == 1) %>%
+  group_by(confounder, type, method, n) %>%
+  summarise(
+    type1 = mean(p_value < alpha),
+    .groups = "drop"
+  )
+
+## -----------------------------
+## 3. Summary for power (all delta0)
+##    power = rejection rate at each (delta0, n, method)
+## -----------------------------
+power_summary <- data_long %>%
+  group_by(confounder, type, method, n, delta0) %>%
+  summarise(
+    power = mean(p_value < alpha),
+    .groups = "drop"
+  )
+
+## -----------------------------
+## 4. Plot functions for each (confounder, type) pair
+## -----------------------------
+
+# (a) Type I error plot:
+#     x = sample size n, y = type I error, color = method
+plot_type1_pair <- function(conf_level, type_level) {
+  df <- type1_summary %>%
+    filter(confounder == conf_level, type == type_level)
+
+  ggplot(df, aes(x = n, y = type1, color = method, group = method)) +
+    geom_line() +
+    geom_point() +
+    geom_hline(yintercept = alpha, linetype = "dashed") + 
+    labs(
+      title = paste("Type I error (delta0 = 1)",
+                    "\nconfounder =", conf_level,
+                    ", type =", type_level),
+      x = "Sample size n (n1 = n2)",
+      y = "Type I error (rejection rate)",
+      color = "Method"
+    ) +
+    theme_bw()
+}
+
+# (b) Power curves:
+#     x = delta0, y = power, color = n (using your color palette),
+#     facet by method
+plot_power_pair <- function(conf_level, type_level) {
+  df <- power_summary %>%
+    filter(confounder == conf_level, type == type_level) %>%
+    mutate(
+      n_factor = factor(
+        n,
+        levels = as.numeric(names(n_colors)) # ensure order 10 < 30 < ...
+      )
+    )
+
+  ggplot(df, aes(x = delta0, y = power,
+                 color = n_factor, group = interaction(method, n))) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ method) +
+    scale_color_manual(values = n_colors, name = "n") +
+    labs(
+      title = paste("Power vs delta0",
+                    "\nconfounder =", conf_level,
+                    ", type =", type_level),
+      x = "delta0",
+      y = "Power (rejection rate)"
+    ) +
+    theme_bw()
+}
+
+## -----------------------------
+## 5. Generate plots for all (confounder, type) pairs
+## -----------------------------
+pairs_ct <- data %>%
+  distinct(confounder, type)
+
+# a list of Type I error plots
+plots_type1 <- pmap(
+  list(pairs_ct$confounder, pairs_ct$type),
+  ~ plot_type1_pair(..1, ..2)
+)
+
+# a list of Power plots
+plots_power <- pmap(
+  list(pairs_ct$confounder, pairs_ct$type),
+  ~ plot_power_pair(..1, ..2)
+)
+
+## Example: print the first pair's plots
+# print(plots_type1[[1]])
+# print(plots_power[[1]])
+
+## -----------------------------
+## 6. (Optional) Save all plots
+## -----------------------------
+# for (i in seq_len(nrow(pairs_ct))) {
+#   conf_level <- pairs_ct$confounder[i]
+#   type_level <- pairs_ct$type[i]
+#
+#   g1 <- plot_type1_pair(conf_level, type_level)
+#   g2 <- plot_power_pair(conf_level, type_level)
+#
+#   ggsave(
+#     filename = paste0("type1_conf_", conf_level, "_type_", type_level, ".png"),
+#     plot = g1, width = 6, height = 4, dpi = 300
+#   )
+#
+#   ggsave(
+#     filename = paste0("power_conf_", conf_level, "_type_", type_level, ".png"),
+#     plot = g2, width = 8, height = 5, dpi = 300
+#   )
+# }
+
+```
+
+
+
+
+
+
+```{r}
+## =====================================================
+## Combined Type I error ratio plots (median, sd, skew)
+## confounder = "yes", ratio = type1 / ks_glm_overall
+## Methods shown:
+##   deshape              -> "DeSHAPE"               (#3c7fb1)
+##   deshape_deconfounder -> "Deconfounder DeSHAPE"  (#e64532)
+##   deshape_glm          -> "GLM DeSHAPE"           (#44a05c)
+##   ks                   -> "KS"                    (#b53289)
+## Baselines: 0.05 / ks_glm_overall, 0.10 / ks_glm_overall
+## =====================================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(patchwork)
+
+alpha <- 0.05
+
+## 1. Long format & Type I error summary (delta0 = 1)
+data_long <- data %>%
+  mutate(n = n1) %>%
+  pivot_longer(
+    cols      = starts_with("p_"),
+    names_to  = "method",
+    values_to = "p_value"
+  ) %>%
+  filter(!is.na(p_value), n <250) %>%
+  mutate(
+    method = str_remove(method, "^p_"),
+    # for median, treat qr as deshape_deconfounder
+    method = dplyr::if_else(
+      type == "median" & method == "qr",
+      "deshape_deconfounder",
+      method
+    )
+  )
+
+type1_summary <- data_long %>%
+  filter(delta0 == 1) %>%
+  group_by(confounder, type, method, n) %>%
+  summarise(
+    type1 = mean(p_value < alpha),
+    .groups = "drop"
+  )
+
+## Methods of interest & pretty legend labels
+method_keep <- c("deshape", "deshape_deconfounder", "ks")
+method_labels <- c(
+  "deshape"              = "DeSHAPE",
+  "deshape_deconfounder" = "Deconfounder DeSHAPE",
+  "deshape_glm"          = "GAMLSS DeSHAPE",
+  "ks"                   = "KS"
+)
+method_colors <- c(
+  "DeSHAPE"              = "#3c7fb1",
+  "Deconfounder DeSHAPE" = "#e64532",
+  "GAMLSS DeSHAPE"          = "#44a05c",
+  "KS"                   = "#b53289"
+)
+
+## Helper to build ratio data for a given type
+build_ratio_type <- function(type_name) {
+  df_type <- type1_summary %>%
+    filter(confounder == "yes", type == type_name)
+
+  ks_glm_overall <- df_type %>%
+    filter(method == "ks_glm") %>%
+    summarise(val = mean(type1, na.rm = TRUE)) %>%
+    pull(val)
+
+  df_ratio <- df_type %>%
+    mutate(ratio = type1 / ks_glm_overall)
+
+  df_ratio_methods <- df_ratio %>%
+    filter(method %in% method_keep) %>%
+    mutate(
+      method = recode(method, !!!method_labels),
+      method = factor(method, levels = names(method_colors))
+    )
+
+  df_baseline <- df_ratio_methods %>%
+    distinct(n) %>%
+    mutate(
+      ratio_005 = 0.05 / ks_glm_overall,
+      ratio_010 = 0.10 / ks_glm_overall
+    ) %>%
+    pivot_longer(
+      cols = c(ratio_005, ratio_010),
+      names_to = "baseline",
+      values_to = "ratio"
+    ) %>%
+    mutate(
+      baseline = recode(
+        baseline,
+        "ratio_005" = "0.05 / ks_glm",
+        "ratio_010" = "0.10 / ks_glm"
+      )
+    )
+
+  df_line <- df_ratio_methods %>%
+    group_by(method) %>%
+    filter(dplyr::n() > 1) %>%
+    ungroup()
+
+  list(
+    ratio_methods = df_ratio_methods,
+    baseline_long = df_baseline,
+    line_methods  = df_line
+  )
+}
+
+## 2. Build data for median, sd, skew
+rat_median <- build_ratio_type("median")
+rat_sd     <- build_ratio_type("sd")
+rat_skew   <- build_ratio_type("skew")
+
+## Global y max for consistent y-axis
+y_max_median <- max(
+  rat_median$ratio_methods$ratio,
+  rat_median$baseline_long$ratio,
+  na.rm = TRUE
+)
+
+y_max_sd <- max(
+  rat_sd$ratio_methods$ratio,
+  rat_sd$baseline_long$ratio,
+  na.rm = TRUE
+)
+
+y_max_skew <- max(
+  rat_skew$ratio_methods$ratio,
+  rat_skew$baseline_long$ratio,
+  na.rm = TRUE
+)
+
+
+## 3. One plot per type (same style)
+
+p_median <- ggplot() +
+  geom_hline(yintercept = 1, linetype = "dotted",
+             color = "grey40", size = 0.7) +
+  geom_line(
+    data = rat_median$line_methods,
+    aes(x = n, y = ratio, color = method, group = method),
+    size = 1.1
+  ) +
+  geom_point(
+    data = rat_median$ratio_methods,
+    aes(x = n, y = ratio, color = method),
+    size = 2.5, stroke = 0.2
+  ) +
+  geom_line(
+    data = rat_median$baseline_long,
+    aes(x = n, y = ratio, linetype = baseline, group = baseline),
+    color = "black", size = 0.9
+  ) +
+  scale_color_manual(values = method_colors, name = "Method") +
+  scale_linetype_manual(
+    values = c("0.05 / ks_glm" = "dashed",
+               "0.10 / ks_glm" = "dashed"),
+    name = "Baseline"
+  ) +
+  labs(
+    title = "Median shift",
+    x = "Sample Size",
+    y = "Type I error ratio"
+  ) +
+  coord_cartesian(ylim = c(0, y_max_median * 1.05)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", size = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+p_sd <- ggplot() +
+  geom_hline(yintercept = 1, linetype = "dotted",
+             color = "grey40", size = 0.7) +
+  geom_line(
+    data = rat_sd$line_methods,
+    aes(x = n, y = ratio, color = method, group = method),
+    size = 1.1
+  ) +
+  geom_point(
+    data = rat_sd$ratio_methods,
+    aes(x = n, y = ratio, color = method),
+    size = 2.5, stroke = 0.2
+  ) +
+  geom_line(
+    data = rat_sd$baseline_long,
+    aes(x = n, y = ratio, linetype = baseline, group = baseline),
+    color = "black", size = 0.9
+  ) +
+  scale_color_manual(values = method_colors, name = "Method") +
+  scale_linetype_manual(
+    values = c("0.05 / ks_glm" = "dashed",
+               "0.10 / ks_glm" = "dashed"),
+    name = "Baseline"
+  ) +
+  labs(
+    title = "Dispersion shift",
+    x = "Sample Size",
+    y = "Type I error ratio"
+  ) +
+  coord_cartesian(ylim = c(0, y_max_sd * 1.05)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", size = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+p_skew <- ggplot() +
+  geom_hline(yintercept = 1, linetype = "dotted",
+             color = "grey40", size = 0.7) +
+  geom_line(
+    data = rat_skew$line_methods,
+    aes(x = n, y = ratio, color = method, group = method),
+    size = 1.1
+  ) +
+  geom_point(
+    data = rat_skew$ratio_methods,
+    aes(x = n, y = ratio, color = method),
+    size = 2.5, stroke = 0.2
+  ) +
+  geom_line(
+    data = rat_skew$baseline_long,
+    aes(x = n, y = ratio, linetype = baseline, group = baseline),
+    color = "black", size = 0.9
+  ) +
+  scale_color_manual(values = method_colors, name = "Method") +
+  scale_linetype_manual(
+    values = c("0.05 / ks_glm" = "dashed",
+               "0.10 / ks_glm" = "dashed"),
+    name = "Baseline"
+  ) +
+  labs(
+    title = "Skewness shift",
+    x = "Sample Size",
+    y = "Type I error ratio"
+  ) +
+  coord_cartesian(ylim = c(0, y_max_skew * 1.05)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", size = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## 4. Combine into a 3×1 figure with one legend
+p_median <- p_median + guides(color = "none", linetype = "none")
+p_sd     <- p_sd     + guides(color = "none", linetype = "none")
+p_skew <- p_skew +
+  theme(
+    legend.position = "bottom",
+    legend.box      = "horizontal",   # Method & Baseline side-by-side
+    legend.box.just = "center"
+  ) +
+  guides(
+    color = guide_legend(
+      title = "Method",
+      nrow  = 2,          # Method items can wrap to 2 rows
+      byrow = TRUE
+    ),
+    linetype = guide_legend(
+      title = "Baseline",
+      nrow  = 1,
+      byrow = TRUE
+    )
+  )
+
+combined_type1 <- (p_median / p_sd / p_skew) +
+  plot_layout(ncol = 1)
+
+combined_type1
+ggsave(
+  filename = "Type1_ratio_combined.png",
+  plot     = combined_type1,
+  width    = 10,      # you can tweak
+  height   = 10,       # you can tweak
+  dpi      = 600      # high resolution
+)
+```
+
+
+
+
+```{r}
+## =====================================================
+## Type I error (original scale) plots (median, sd, skew)
+## confounder = "yes", delta0 = 1
+## Smoothed curves are CLAMPED to [0, 1] so min=0 and max=1
+## =====================================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(patchwork)
+
+alpha <- 0.05
+
+## 1) Long format
+data_long <- data %>%
+  mutate(n = n1) %>%
+  pivot_longer(
+    cols      = starts_with("p_"),
+    names_to  = "method",
+    values_to = "p_value"
+  ) %>%
+  filter(!is.na(p_value), n < 250) %>%
+  mutate(
+    method = str_remove(method, "^p_"),
+    # for median, treat qr as deshape_deconfounder
+    method = dplyr::if_else(type == "median" & method == "qr",
+                            "deshape_deconfounder", method)
+  )
+
+## 2) Type I error summary (delta0 = 1)
+type1_summary <- data_long %>%
+  filter(delta0 == 1) %>%
+  group_by(confounder, type, method, n) %>%
+  summarise(
+    type1 = mean(p_value < alpha),
+    .groups = "drop"
+  )
+
+## 3) Methods & aesthetics
+method_keep <- c("deshape", "deshape_deconfounder", "ks")
+
+method_labels <- c(
+  "deshape"              = "DeSHAPE",
+  "deshape_deconfounder" = "Deconfounder DeSHAPE",
+  "deshape_glm"          = "GAMLSS DeSHAPE",
+  "ks"                   = "KS"
+)
+
+method_colors <- c(
+  "DeSHAPE"              = "#3c7fb1",
+  "Deconfounder DeSHAPE" = "#e64532",
+  "GAMLSS DeSHAPE"       = "#44a05c",
+  "KS"                   = "#b53289"
+)
+
+baseline_df <- tibble(
+  baseline = factor(c("0.05", "0.10"), levels = c("0.05", "0.10")),
+  y        = c(0.05, 0.10)
+)
+
+## ---- Smoothed curve builder (per method), CLAMP to [0,1] ----
+make_smooth_df <- function(df, n_grid = 200, loess_span = 0.75) {
+  rng <- range(df$n, na.rm = TRUE)
+  grid_n <- seq(rng[1], rng[2], length.out = n_grid)
+
+  df %>%
+    arrange(n) %>%
+    group_by(method) %>%
+    group_modify(~{
+      d <- .x
+      # if too few points for loess, fall back to linear
+      if (nrow(d) >= 4 && length(unique(d$n)) >= 4) {
+        fit <- tryCatch(
+          loess(type1 ~ n, data = d, span = loess_span,
+                control = loess.control(surface = "direct")),
+          error = function(e) NULL
+        )
+        if (is.null(fit)) {
+          fit <- lm(type1 ~ n, data = d)
+          yhat <- predict(fit, newdata = data.frame(n = grid_n))
+        } else {
+          yhat <- predict(fit, newdata = data.frame(n = grid_n))
+        }
+      } else {
+        fit <- lm(type1 ~ n, data = d)
+        yhat <- predict(fit, newdata = data.frame(n = grid_n))
+      }
+
+      # CLAMP to [0,1]
+      yhat <- pmax(0, pmin(1, yhat))
+
+      tibble(n = grid_n, type1_smooth = yhat)
+    }) %>%
+    ungroup()
+}
+
+## Plot builder (original scale, smoothed curves, y-limits start at 0)
+plot_type1 <- function(type_name, title_text) {
+
+  df <- type1_summary %>%
+    filter(confounder == "yes", type == type_name, method %in% method_keep) %>%
+    mutate(
+      method = recode(method, !!!method_labels),
+      method = factor(method, levels = names(method_colors))
+    )
+
+  df_smooth <- make_smooth_df(df, n_grid = 200, loess_span = 0.75)
+
+  # y-limit: start at 0, include baseline(0.10); upper cap only at 1
+  y_max <- max(c(df$type1, 0.10), na.rm = TRUE)
+  y_lim <- c(0, min(1, y_max * 1.10))
+
+  ggplot() +
+    geom_hline(
+      data = baseline_df,
+      aes(yintercept = y, linetype = baseline),
+      color = "black",
+      linewidth = 0.9
+    ) +
+    geom_line(
+      data = df_smooth,
+      aes(x = n, y = type1_smooth, color = method, group = method),
+      linewidth = 1.1
+    ) +
+    
+    scale_color_manual(values = method_colors, name = "Method") +
+    scale_linetype_manual(
+      values = c("0.05" = "dashed", "0.10" = "dotted"),
+      name   = "Baseline"
+    ) +
+    labs(
+      title = title_text,
+      x = "Sample size",
+      y = "Type I error"
+    ) +
+    coord_cartesian(ylim = y_lim) +
+    theme_bw(base_size = 14) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+      axis.title = element_text(size = 13),
+      axis.text  = element_text(size = 11)
+    )
+}
+
+p_median <- plot_type1("median", "Median shift")
+p_sd     <- plot_type1("sd",     "Dispersion shift")
+p_skew   <- plot_type1("skew",   "Skewness shift")
+
+combined_type1 <-
+  (p_median / p_sd / p_skew) +
+  plot_layout(ncol = 1, guides = "collect") &
+  theme(
+    legend.position = "bottom",
+    legend.box      = "horizontal",
+    legend.box.just = "center"
+  )
+
+combined_type1
+
+ggsave(
+  filename = "Type1_originalscale.png",
+  plot     = combined_type1,
+  width    = 10,
+  height   = 10,
+  dpi      = 1000
+)
+
+```
+
+
+
+
+
+
+
+```{r}
+## ============================================
+## POWER FIGURES: median, sd, skew (no confounder)
+## - median, sd: effectsize based on delta0 (your transforms)
+## - skew: effectsize = 2/sqrt(alpha1) - 2/sqrt(alpha1 * delta0)
+## - sd & skew: remove ttest, wilcox from curves (but keep in legend)
+## - Panels: 3×1, shared legend at bottom
+## ============================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(mFilter)
+library(patchwork)
+
+alpha  <- 0.05
+alpha1 <- 2   # <-- set to your actual simulation alpha1
+
+## -----------------------------
+## 1. Long format & power summary
+## -----------------------------
+data_long_power <- data %>%
+  mutate(n = n1) %>%              # n1 = n2
+  pivot_longer(
+    cols      = starts_with("p_"),
+    names_to  = "method",
+    values_to = "p_value"
+  ) %>%
+  filter(!is.na(p_value)) %>%
+  mutate(method = str_remove(method, "^p_"))
+
+power_summary <- data_long_power %>%
+  group_by(confounder, type, method, n, delta0) %>%
+  summarise(
+    power = mean(p_value < alpha),
+    .groups = "drop"
+  )
+
+## -----------------------------
+## 2. Formal method names & palette
+## -----------------------------
+method_labels <- c(
+  "deshape"              = "DeSHAPE",
+  "ks"                   = "KS test",
+  "ttest"                = "t test",
+  "wilcox"               = "Wilcoxon test"
+)
+
+method_levels <- unname(method_labels)
+
+method_palette <- c(
+  "DeSHAPE"               = "#3c7fb1",
+  "KS test"               = "#e64532",
+  "t test"                = "#44a05c",
+  "Wilcoxon test"         = "#b53289"
+)
+labeller_n <- labeller(
+  n_factor = function(x) paste0("n = ", x)
+)
+## ============================================
+## 3. type = "median"  (no confounder)
+##    - effectsize = delta0 - 1 (es_plot), truncated < 3
+##    - spline interpolation smoothing
+## ============================================
+
+power_median <- power_summary %>%
+  filter(
+    confounder == "no",
+    type == "median",
+    n %in% c(10, 30, 50, 70)
+  ) %>%
+  mutate(
+    effectsize = delta0
+  )
+
+power_median$n_factor <- factor(
+  power_median$n,
+  levels = c(10, 30, 50, 70)
+)
+
+power_median_smooth <- power_median %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  distinct(effectsize, .keep_all = TRUE) %>%  # 防止 effectsize 重复
+  do({
+    x <- .$effectsize
+    y <- .$power
+
+    if (length(x) < 2) {
+      return(data.frame(effectsize = x, power = y))
+    }
+
+    x_new <- seq(min(x), max(x), length.out = 200)
+    f     <- splinefun(x, y, method = "fmm")
+
+    y_new <- f(x_new)
+    y_new <- pmin(pmax(y_new, 0), 1)  # 截断在 [0,1]
+
+    data.frame(effectsize = x_new, power = y_new)
+  }) %>%
+  ungroup() %>%
+  mutate(
+    es_plot = effectsize - 1       # 你的横轴变换
+  ) %>%
+  filter(es_plot < 2)              # 截断范围
+
+power_median_smooth$Method <- factor(
+  recode(power_median_smooth$method, !!!method_labels),
+  levels = method_levels
+)
+
+p_median <- ggplot(
+  power_median_smooth,
+  aes(x = es_plot, y = power,
+      color = Method, group = Method)
+) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  labs(
+    title = "Median shift",
+    x = "Effect size",
+    y = "Power"
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 4. type = "sd"  (no confounder)
+##    - effectsize = delta0, x_plot = 2*(effectsize - 1)
+##    - remove ttest, wilcox from curves
+##    - HP filter for trend
+## ============================================
+
+power_sd <- power_summary %>%
+  filter(
+    confounder == "no",
+    type == "sd",
+    n %in% c(10, 30, 50, 70)
+  ) %>%
+  mutate(
+    effectsize = delta0
+  )
+
+power_sd$n_factor <- factor(
+  power_sd$n,
+  levels = c(10, 30, 50, 70)
+)
+
+power_sd_filt <- power_sd %>%
+  filter(!method %in% c("ttest", "wilcox"))
+
+power_sd_hp <- power_sd_filt %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  do({
+    x <- .$effectsize
+    y <- .$power
+
+    if (length(y) < 3) {
+      data.frame(effectsize = x, power_trend = y)
+    } else {
+      hp     <- mFilter::hpfilter(y, freq = 100)
+      trend  <- as.numeric(hp$trend)
+      trend  <- pmin(pmax(trend, 0), 1)
+
+      data.frame(effectsize = x,
+                 power_trend = trend)
+    }
+  }) %>%
+  ungroup() %>%
+  mutate(
+    es_plot = 2 * (effectsize - 1)
+  ) %>%
+  filter(es_plot < 15)
+
+power_sd_hp$Method <- factor(
+  recode(power_sd_hp$method, !!!method_labels),
+  levels = method_levels
+)
+
+p_sd <- ggplot(
+  power_sd_hp,
+  aes(x = es_plot, y = power_trend,
+      color = Method, group = Method)
+) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  labs(
+    title = "Dispersion shift",
+    x = "Effect size",
+    y = "Power"
+  ) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 5. type = "skew"  (no confounder)
+##    - effectsize = 2/sqrt(alpha1) - 2/sqrt(alpha1 * delta0)
+##    - remove ttest, wilcox from curves
+##    - HP filter for trend
+## ============================================
+
+power_skew <- power_summary %>%
+  filter(
+    confounder == "no",
+    type == "skew",
+    n %in% c(90, 230, 330, 410)
+  ) %>%
+  mutate(
+    effectsize = delta0#2 / sqrt(1/16) - 2 / sqrt(1/16 * delta0)
+  )
+
+power_skew$n_factor <- factor(
+  power_skew$n,
+  levels = c(90, 230, 330, 410)
+)
+
+power_skew_filt <- power_skew %>%
+  filter(!method %in% c("ttest", "wilcox"))
+
+power_skew_hp <- power_skew_filt %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  do({
+    x <- .$effectsize
+    y <- .$power
+
+    if (length(y) < 3) {
+      data.frame(effectsize = x, power_trend = y)
+    } else {
+      hp     <- mFilter::hpfilter(y, freq = 100)
+      trend  <- as.numeric(hp$trend)
+      trend  <- pmin(pmax(trend, 0), 1)
+
+      data.frame(effectsize = x,
+                 power_trend = trend)
+    }
+  }) %>%
+  ungroup() %>%
+  mutate(
+    es_plot = effectsize
+  )
+
+power_skew_hp$Method <- factor(
+  recode(power_skew_hp$method, !!!method_labels),
+  levels = method_levels
+)
+
+p_skew <- ggplot(
+  power_skew_hp,
+  aes(x = es_plot, y = power_trend,
+      color = Method, group = Method)
+) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  labs(
+    title = "Skewness shift",
+    x = "Effect size",
+    y = "Power"
+  ) +
+  #coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 6. Combine into 3×1 figure with single legend
+## ============================================
+
+## 1) Turn off legends in all three panels
+p_median <- p_median + guides(color = "none")
+p_sd     <- p_sd     + guides(color = "none")
+p_skew   <- p_skew   + guides(color = "none")
+
+## 2) Custom legend with ONLY the 4 methods (formal names + colors)
+legend_df <- data.frame(
+  Method = factor(
+    c("DeSHAPE",
+      "KS test",
+      "t test",
+      "Wilcoxon test"),
+    levels = c("DeSHAPE",
+               "KS test",
+               "t test",
+               "Wilcoxon test")
+  ),
+  x = 1,
+  y = 1
+)
+
+legend_plot <- ggplot(legend_df, aes(x = x, y = y, color = Method)) +
+  # draw real points so legend is correct
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = method_palette,
+    name   = "Method"
+  ) +
+  guides(
+    color = guide_legend(
+      title = "Method",
+      nrow  = 2,
+      byrow = TRUE
+    )
+  ) +
+  # move point outside visible region so it’s clipped
+  coord_cartesian(xlim = c(0, 0.5), ylim = c(0, 1), clip = "on") +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    legend.box      = "horizontal",
+    legend.box.just = "center",
+    legend.text     = element_text(size = 11),
+    legend.title    = element_text(size = 13, face = "bold"),
+    legend.margin   = margin(t = -6, r = 0, b = 0, l = 0),
+    plot.margin     = margin(t = -15, r = 0, b = 0, l = 0)
+  )
+
+## 3) Combine 3 panels + custom legend
+combined_power <- (p_median / p_sd / p_skew / legend_plot) +
+  plot_layout(
+    ncol    = 1,
+    heights = c(3, 3, 3, 0.5)   # relative heights: 3 panels + 1 legend row
+  )
+
+print(combined_power)
+
+ggsave(
+  filename = "Power_combined_median_sd_skew.png",
+  plot     = combined_power,
+  width    = 12,
+  height   = 10,
+  dpi      = 600
+)
+
+
+```
+
+```{r}
+## ============================================
+## POWER FIGURES: median, sd, skew (no confounder)
+## Truncation requirement = the *panel x-axis* must end there (no extra empty x-range).
+## Implemented via:
+##   1) facet_wrap(scales = "free_x")
+##   2) geom_blank() to force each facet range to [0, max_trunc] exactly
+##   3) scale_x_continuous(expand = c(0,0)) to remove padding
+## ============================================
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(mFilter)
+library(patchwork)
+
+alpha  <- 0.05
+alpha1 <- 2
+
+## -----------------------------
+## 1. Long format & power summary
+## -----------------------------
+data_long_power <- data %>%
+  mutate(n = n1) %>%
+  pivot_longer(
+    cols      = starts_with("p_"),
+    names_to  = "method",
+    values_to = "p_value"
+  ) %>%
+  filter(!is.na(p_value)) %>%
+  mutate(method = str_remove(method, "^p_"))
+
+power_summary <- data_long_power %>%
+  group_by(confounder, type, method, n, delta0) %>%
+  summarise(power = mean(p_value < alpha), .groups = "drop")
+
+## -----------------------------
+## 2. Formal method names & palette
+## -----------------------------
+method_labels <- c(
+  "deshape" = "DeSHAPE",
+  "ks"      = "KS test",
+  "ttest"   = "t test",
+  "wilcox"  = "Wilcoxon test"
+)
+method_levels <- unname(method_labels)
+
+method_palette <- c(
+  "DeSHAPE"        = "#3c7fb1",
+  "KS test"        = "#e64532",
+  "t test"         = "#44a05c",
+  "Wilcoxon test"  = "#b53289"
+)
+
+labeller_n <- labeller(n_factor = function(x) paste0("n = ", x))
+
+## ============================================
+## 3. Median shift (spline smoothing + facet-specific truncation)
+##   x = es_plot = delta0 - 1
+##   trunc: n=30 -> 1.1, n=50 -> 1.0, n=70 -> 0.8, n=10 keep 2.0
+## ============================================
+
+power_median <- power_summary %>%
+  filter(confounder == "no", type == "median", n %in% c(10, 30, 50, 70)) %>%
+  mutate(effectsize = delta0)
+
+power_median$n_factor <- factor(power_median$n, levels = c(10, 30, 50, 70))
+
+power_median_smooth <- power_median %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  distinct(effectsize, .keep_all = TRUE) %>%
+  do({
+    x <- .$effectsize
+    y <- .$power
+    if (length(x) < 2) {
+      data.frame(effectsize = x, power = y)
+    } else {
+      x_new <- seq(min(x), max(x), length.out = 200)
+      f <- splinefun(x, y, method = "fmm")
+      y_new <- pmin(pmax(f(x_new), 0), 1)
+      data.frame(effectsize = x_new, power = y_new)
+    }
+  }) %>%
+  ungroup() %>%
+  mutate(es_plot = effectsize - 1)
+
+power_median_smooth$Method <- factor(
+  recode(power_median_smooth$method, !!!method_labels),
+  levels = method_levels
+)
+
+## Force per-facet x-range to start at 0 and end at the requested truncation
+median_xlim <- tibble(
+  n_factor = factor(c(10, 30, 50, 70), levels = c(10, 30, 50, 70)),
+  x_min    = 0,
+  x_max    = c(2.0, 1.1, 0.8, 0.8)
+) %>%
+  pivot_longer(c(x_min, x_max), names_to = "which", values_to = "es_plot")
+
+p_median <- ggplot(
+  power_median_smooth %>%
+    filter(es_plot >= 0) %>%   # keep clean left bound
+    filter(es_plot <= case_when(
+      n_factor == "10" ~ 2.0,
+      n_factor == "30" ~ 1.1,
+      n_factor == "50" ~ 1.0,
+      n_factor == "70" ~ 0.8
+    )),
+  aes(x = es_plot, y = power, color = Method, group = Method)
+) +
+  geom_blank(data = median_xlim, aes(x = es_plot, y = 0), inherit.aes = FALSE) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, scales = "free_x", labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) +
+  labs(title = "Median shift", x = "Effect size", y = "Power") +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 4. Dispersion shift (HP trend + facet-specific truncation)
+##   x = es_plot = 2*(delta0 - 1)
+##   trunc: n=30 -> 10, n=50 -> 5, n=70 -> 4, n=10 keep 15
+##   (curves shown only for DeSHAPE + KS, but legend keeps all four)
+## ============================================
+
+power_sd <- power_summary %>%
+  filter(confounder == "no", type == "sd", n %in% c(10, 30, 50, 70)) %>%
+  mutate(effectsize = delta0)
+
+power_sd$n_factor <- factor(power_sd$n, levels = c(10, 30, 50, 70))
+
+power_sd_filt <- power_sd %>%
+  filter(!method %in% c("ttest", "wilcox"))
+
+power_sd_hp <- power_sd_filt %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  do({
+    x <- .$effectsize
+    y <- .$power
+    if (length(y) < 3) {
+      data.frame(effectsize = x, power_trend = y)
+    } else {
+      hp <- mFilter::hpfilter(y, freq = 100)
+      trend <- pmin(pmax(as.numeric(hp$trend), 0), 1)
+      data.frame(effectsize = x, power_trend = trend)
+    }
+  }) %>%
+  ungroup() %>%
+  mutate(es_plot = 2 * (effectsize - 1))
+
+power_sd_hp$Method <- factor(
+  recode(power_sd_hp$method, !!!method_labels),
+  levels = method_levels
+)
+
+sd_xlim <- tibble(
+  n_factor = factor(c(10, 30, 50, 70), levels = c(10, 30, 50, 70)),
+  x_min    = 0,
+  x_max    = c(15, 10, 5, 4)
+) %>%
+  pivot_longer(c(x_min, x_max), names_to = "which", values_to = "es_plot")
+
+p_sd <- ggplot(
+  power_sd_hp %>%
+    filter(es_plot >= 0) %>%
+    filter(es_plot <= case_when(
+      n_factor == "10" ~ 15,
+      n_factor == "30" ~ 10,
+      n_factor == "50" ~ 5,
+      n_factor == "70" ~ 4
+    )),
+  aes(x = es_plot, y = power_trend, color = Method, group = Method)
+) +
+  geom_blank(data = sd_xlim, aes(x = es_plot, y = 0), inherit.aes = FALSE) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, scales = "free_x", labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) +
+  labs(title = "Dispersion shift", x = "Effect size", y = "Power") +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 5. Skewness shift (UNCHANGED)
+## ============================================
+
+power_skew <- power_summary %>%
+  filter(confounder == "no", type == "skew", n %in% c(90, 230, 330, 410)) %>%
+  mutate(effectsize = delta0)
+
+power_skew$n_factor <- factor(power_skew$n, levels = c(90, 230, 330, 410))
+
+power_skew_filt <- power_skew %>%
+  filter(!method %in% c("ttest", "wilcox"))
+
+power_skew_hp <- power_skew_filt %>%
+  group_by(n_factor, method) %>%
+  arrange(effectsize) %>%
+  do({
+    x <- .$effectsize
+    y <- .$power
+    if (length(y) < 3) {
+      data.frame(effectsize = x, power_trend = y)
+    } else {
+      hp <- mFilter::hpfilter(y, freq = 100)
+      trend <- pmin(pmax(as.numeric(hp$trend), 0), 1)
+      data.frame(effectsize = x, power_trend = trend)
+    }
+  }) %>%
+  ungroup() %>%
+  mutate(es_plot = effectsize)
+
+power_skew_hp$Method <- factor(
+  recode(power_skew_hp$method, !!!method_labels),
+  levels = method_levels
+)
+
+p_skew <- ggplot(
+  power_skew_hp,
+  aes(x = es_plot, y = power_trend, color = Method, group = Method)
+) +
+  geom_line(size = 1.2) +
+  facet_wrap(~ n_factor, nrow = 1, labeller = labeller_n) +
+  scale_color_manual(values = method_palette, name = "Method", drop = FALSE) +
+  labs(title = "Skewness shift", x = "Effect size", y = "Power") +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.minor   = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(colour = "grey85", linewidth = 0.3),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title = element_text(size = 13),
+    axis.text  = element_text(size = 11)
+  )
+
+## ============================================
+## 6. Shared legend (custom), combine 3×1
+## ============================================
+
+p_median <- p_median + guides(color = "none")
+p_sd     <- p_sd     + guides(color = "none")
+p_skew   <- p_skew   + guides(color = "none")
+
+legend_df <- data.frame(
+  Method = factor(
+    c("DeSHAPE", "KS test", "t test", "Wilcoxon test"),
+    levels = c("DeSHAPE", "KS test", "t test", "Wilcoxon test")
+  ),
+  x = 1, y = 1
+)
+
+legend_plot <- ggplot(legend_df, aes(x = x, y = y, color = Method)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = method_palette, name = "Method") +
+  guides(color = guide_legend(title = "Method", nrow = 2, byrow = TRUE)) +
+  coord_cartesian(xlim = c(0, 0.5), ylim = c(0, 1), clip = "on") +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    legend.box      = "horizontal",
+    legend.box.just = "center",
+    legend.text     = element_text(size = 11),
+    legend.title    = element_text(size = 13, face = "bold"),
+    legend.margin   = margin(t = -6, r = 0, b = 0, l = 0),
+    plot.margin     = margin(t = -15, r = 0, b = 0, l = 0)
+  )
+
+combined_power <- (p_median / p_sd / p_skew / legend_plot) +
+  plot_layout(ncol = 1, heights = c(3, 3, 3, 0.5))
+
+print(combined_power)
+
+ggsave(
+  filename = "Power_combined_median_sd_skew_truncated.png",
+  plot     = combined_power,
+  width    = 12,
+  height   = 10,
+  dpi      = 600
+)
+
+```
+

@@ -120,7 +120,7 @@
 #' @importFrom stats model.matrix model.response model.frame pnorm sd dnorm
 #' @export
 deshape_wald_contrast <- function(formula, data, 
-                                  mode = c("customize","dispersion","symmetry"),
+                                  mode = c("customize","dispersion","symmetry"),q = 0.1,
                                   taus = NULL, contrast = NULL, alternative = "two.sided",
                                   kernel = "gaussian") {
   if (!all(alternative %in% c("two.sided", "greater", "less"))) {
@@ -131,7 +131,7 @@ deshape_wald_contrast <- function(formula, data,
     if (mode == "dispersion") {
       taus <- c(0.25, 0.75)
     } else if (mode == "symmetry") {
-      taus <- c(0.1, 0.5, 0.9)
+      taus <- c(q, 0.5, 1-q)
     }
   }
   if (mode == "customize" && is.null(taus))
